@@ -1,2 +1,2 @@
 # Carnavalrio
-Site de notícias do app Carnaval Rio
+Site de notícias do app Carnaval Rio.
