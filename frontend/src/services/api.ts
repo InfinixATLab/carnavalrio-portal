@@ -1,5 +1,5 @@
 // src/services/api.ts
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { ACCESS_TOKEN, EMAIL, NAME, REFRESH_TOKEN, SURNAME } from "../constants/Token";
 import { API_HOST } from "../constants/Host";
 import { getCookie } from "../tools/Tools";
@@ -32,13 +32,15 @@ api.interceptors.request.use(
 );
 
 let isRefreshing = false;
+type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
 let failedQueue: Array<{
     resolve: (value?: unknown) => void;
-    reject: (error: any) => void;
+    reject: (error: unknown) => void;
     config: InternalAxiosRequestConfig;
 }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue.forEach(prom => {
         if (error) prom.reject(error);
         else {
@@ -52,16 +54,17 @@ const processQueue = (error: any, token: string | null = null) => {
 api.interceptors.response.use(
     response => response,
     async (error: AxiosError) => {
-        const originalRequest = error.config!;
+        const originalRequest = error.config as RetryableRequestConfig | undefined;
         if (
+            !originalRequest ||
             !error.response ||
             error.response.status !== 401 ||
-            (originalRequest as any)._retry
+            originalRequest._retry
         ) {
             return Promise.reject(error);
         }
 
-        (originalRequest as any)._retry = true;
+        originalRequest._retry = true;
 
         if (isRefreshing) {
             return new Promise((resolve, reject) => {

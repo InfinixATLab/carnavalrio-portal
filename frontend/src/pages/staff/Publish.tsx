@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import Header from "../../components/Header/Header";
-import type { News } from "../../interfaces/News"; 
 import RichTextEditor from "../../components/Quill/Quill";
 import { ACCESS_TOKEN, NAME, SURNAME } from "../../constants/Token";
 import api from "../../services/api";
@@ -9,6 +8,13 @@ import axios from "axios";
 import { useSchools } from "../../hooks/useRegions/useSchools";
 import { HOST } from "../../constants/Host";
 import Spinner from "../../components/Spinner/Spinner";
+import type {
+    ApiValidationErrors,
+    CreateNewsPayload,
+    CreateNewsResponse,
+    NewsCreationForm,
+    UploadImageResponse,
+} from "../../interfaces/NewsPublication";
 
 // --- Funções da API (com correção) ---
 
@@ -16,86 +22,103 @@ const headers = () => ({
     "Authorization": `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`
 })
 
-type UploadResult = { id: number } | { error: string }
-
-async function upload(payload: FormData): Promise<UploadResult> {
-    try {
-        const res = await api.post("upload/", payload, {
-            headers: headers()
-        });
-        return { id: res.data.id };
-    } catch (err: any) {
-        return { error: err.response?.data?.error || "Upload failed"};
-    }
+async function upload(payload: FormData): Promise<UploadImageResponse> {
+    const res = await api.post<UploadImageResponse>("upload/", payload, {
+        headers: headers()
+    });
+    return res.data;
 }
 
-type PublishResult = { error?: string; data?: any };
-
-async function publishNews (payload: any): Promise<PublishResult> {
-    
+async function publishNews(payload: CreateNewsPayload): Promise<CreateNewsResponse> {
     if (!payload.image || typeof payload.image !== "number" || payload.image < 0) {
-        return { error: "Imagem de capa inválida ou ausente." };
+        throw new Error("Imagem de capa inválida ou ausente.");
     }
 
-    try {
-        const res = await api.post("news/", payload, {
-            headers: headers(),
-            validateStatus: () => true,
-        });
-
-        if (res.status >= 200 && res.status < 300) return { data: res.data };
-
-        const errorData = res.data;
-        return { error: errorData?.detail || errorData || "Erro ao publicar." };
-    } catch (err) {
-        if (axios.isAxiosError(err) && err.response) {
-            return err.response.data || "Erro ao publicar.";
-        }
-        return { error: "Erro de conexão com o servidor. Tente novamente mais tarde." };
-    }
+    const res = await api.post<CreateNewsResponse>("news/", payload, {
+        headers: headers(),
+    });
+    return res.data;
 }
 
-// --- Tratamento de Erro (sem mudanças) ---
+// --- Tratamento de Erro ---
+
+function validationMessage(value: unknown): string | null {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (Array.isArray(value)) {
+        const messages = value.filter((item): item is string => typeof item === "string");
+        return messages.length ? messages.join(" ") : null;
+    }
+
+    return null;
+}
+
+function getApiValidationMessage(data: ApiValidationErrors): string | null {
+    const slugMessage = validationMessage(data.slug);
+    if (slugMessage) return slugMessage;
+
+    const titleMessage = validationMessage(data.title);
+    if (titleMessage) {
+        if (titleMessage.includes("blank")) return "Preencha o título.";
+        return titleMessage;
+    }
+
+    const bodyMessage = validationMessage(data.body);
+    if (bodyMessage) {
+        if (bodyMessage.includes("blank")) return "Preencha o corpo da notícia.";
+        return bodyMessage;
+    }
+
+    const imageMessage = validationMessage(data.image);
+    if (imageMessage) return imageMessage;
+
+    const detailMessage = validationMessage(data.detail);
+    if (detailMessage) return detailMessage;
+
+    const errorMessage = validationMessage(data.error);
+    if (errorMessage) return errorMessage;
+
+    for (const value of Object.values(data)) {
+        const message = validationMessage(value);
+        if (message) return message;
+    }
+
+    return null;
+}
 
 function getFriendlyError(error: unknown): string {
-    console.error(error)
-    if (typeof error === "string") {
-        if (error.includes("value too long")) {
+    console.error(error);
+
+    if (axios.isAxiosError<ApiValidationErrors>(error)) {
+        const apiMessage = error.response?.data
+            ? getApiValidationMessage(error.response.data)
+            : null;
+
+        if (apiMessage) return apiMessage;
+        if (error.response) return "Erro de validação nos campos.";
+        return "Erro de conexão com o servidor. Tente novamente mais tarde.";
+    }
+
+    if (error instanceof Error) {
+        if (error.message.includes("value too long")) {
             return "Nome ou subtítulo da imagem muito longo.";
         }
-        if (error.includes("cannot identify image file")) {
+        if (error.message.includes("cannot identify image file")) {
             return "Formato de imagem inválido. Use JPG, JPEG, PNG ou WEBP.";
         }
-        if (error.includes("token")) {
+        if (error.message.includes("token")) {
             return "Sua sessão expirou. Faça login novamente.";
         }
+        return error.message;
+    }
+
+    if (typeof error === "string") {
         return error;
     }
 
-    if (typeof error === "object" && error !== null) {
-        if ("code" in error && error.code === "token_not_valid") {
-            return "Sessão expirada. Faça login novamente.";
-        }
-        if ("title" in error && Array.isArray(error.title)) {
-            const msg = error.title.join(" ");
-            if (msg.includes("blank")) return "Preencha o título."; 
-            return "Título muito longo. Máximo de 255 caracteres.";
-        }
-        if ("body" in error && Array.isArray(error.body)) {
-            const msg = error.body.join(" ");
-            if (msg.includes("blank")) return "Preencha o corpo da notícia."; 
-            return "Preencha o corpo da notícia.";
-        }
-        if ("image" in error) {
-            return "Defina uma imagem de capa e um subtítulo!";
-        }
-        if ("detail" in error && typeof error.detail === "string") {
-            return error.detail;
-        }
-        return "Erro de validação nos campos.";
-    }
-
-    return "Erro inesperado.";
+    return "Erro de validação nos campos.";
 }
 
 // --- Componente Modal (Movido para fora) ---
@@ -136,7 +159,7 @@ export default function Publish() {
     });
     const [previewUrl, setPreviewUrl] = useState<string>("");
 
-    const [formData, setFormData] = useState<Partial<News>>({
+    const [formData, setFormData] = useState<NewsCreationForm>({
         title: "",
         body: "",
         school: undefined,
@@ -159,27 +182,19 @@ export default function Publish() {
 
     // --- LÓGICA DE SUBMISSÃO REFEITA ---
 
-    const handleUploadImage = async (): Promise<{ id?: number; error?: string }> => {
+    const handleUploadImage = async (): Promise<UploadImageResponse> => {
         if (!(imageUpload.file && imageUpload.alt)) {
-             return { error: "A imagem de capa e o subtítulo são obrigatórios." };
+             throw new Error("A imagem de capa e o subtítulo são obrigatórios.");
         }
 
         const uploadData = new FormData();
         uploadData.append("file", imageUpload.file);
         uploadData.append("alt", imageUpload.alt);
 
-        const result = await upload(uploadData);
-
-        if ("error" in result) {
-            console.error("Erro ao subir a capa: ", result.error)
-            const message = getFriendlyError(result.error || "");
-            return { error: message }
-        } else {
-            return { id: result.id };
-        }
+        return upload(uploadData);
     }
 
-
+// Valida os dados do botao "clica", faz o uploading das imagens, cria noticiasas, trata noticia e retorna o usuario para pagina recem publicada
     const handleSubmit = async () => {
         setIsLoading(true);
         setUploadError("");
@@ -190,29 +205,25 @@ export default function Publish() {
             }
         
             const coverResult = await handleUploadImage();
-            if (coverResult.error) {
-                throw new Error(coverResult.error);
-            }
-
-            const imageId = coverResult.id || -1;
+            const imageId = coverResult.id;
             const identifier = slug(formData.title);
 
-            const updatedPayload = {
+            const updatedPayload: CreateNewsPayload = {
                 ...formData,
                 image: imageId,
-                school: formData.school,
                 author_name: `${localStorage.getItem(NAME)} ${localStorage.getItem(SURNAME)}` || "",
                 slug: identifier,
                 link: `${HOST}radar/${identifier}`,
                 status: 'Publicado',
             };
             
-            const res = await publishNews(updatedPayload);
-
-            if (res.error) throw res.error;
+            const createdNews = await publishNews(updatedPayload);
+            const createdSlug = typeof createdNews.slug === "string" && createdNews.slug.trim()
+                ? createdNews.slug
+                : identifier;
 
             if (previewUrl) URL.revokeObjectURL(previewUrl);
-            window.location.href = updatedPayload.link;
+            window.location.assign(new URL(`radar/${encodeURIComponent(createdSlug)}`, HOST).toString());
         } catch (err) {
             const friendly = getFriendlyError(err);
             setUploadError(friendly);
@@ -241,7 +252,7 @@ export default function Publish() {
                         </label>
                         <select
                             id="school"
-                            value={formData.school}
+                            value={formData.school ?? ""}
                             onChange={(e) => setFormData({ ...formData, school: parseInt(e.target.value) || undefined })}
                             disabled={schoolsLoading}
                             className="w-full text-red-500 font-bold text-sm rounded-md  border border-gray-300 p-2 disabled:bg-gray-100 focus:outline-none focus:border-red-200 focus:transition-all focus:duration-200 focus:ring-1 focus:ring-red-200"
