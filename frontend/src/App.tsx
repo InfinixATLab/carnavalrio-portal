@@ -15,10 +15,12 @@ import Terms from './pages/Terms';
 import Contact from './pages/Contact';
 import Advertise from './pages/Advertise';
 
+// Componente raiz responsável por declarar as rotas públicas, autenticadas e restritas por função.
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Páginas públicas acessíveis sem autenticação. */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route
@@ -50,6 +52,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* A área de gerenciamento exige token válido e ao menos uma das funções permitidas. */}
           <Route index element={<Management />} />
           <Route path="publish" element={<Publish />} />
           <Route path="edit/:slug" element={<Edit />} />

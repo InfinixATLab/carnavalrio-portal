@@ -1,4 +1,4 @@
-// Spinner como um overlay fixo na tela inteira
+// Indicador de carregamento como overlay fixo, bloqueando visualmente a tela durante operações assíncronas.
 export default function Spinner() {
     return (
         <div 

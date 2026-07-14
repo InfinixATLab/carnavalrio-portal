@@ -10,6 +10,7 @@ type ModalProps = {
     onCancel?: () => void;
 };
 
+// Lista as notícias administrativas; a resposta paginada deve trazer os itens em `results`.
 async function fetchNews(): Promise<News[]> {
     try {
         const {data} = await api.get("news/");
@@ -28,6 +29,7 @@ async function fetchNews(): Promise<News[]> {
     }
 }
 
+// Remove uma notícia pelo slug e converte sucesso ou falha em um resultado simples para a tela.
 async function deleteArticle(slug: string): Promise<{ error: any } | { response: string}> {
     try {
         await api.delete(`news/${slug}/`)
@@ -40,10 +42,12 @@ async function deleteArticle(slug: string): Promise<{ error: any } | { response:
 
 
 export default function Management() {
+    // Estados mantêm a busca digitada, a listagem atual e o slug aguardando confirmação de exclusão.
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [news, setNews] = useState<News[]>([]);
     const [articleToDelete, setArticleToDelete] = useState<string | null>(null);
     const navigate = useNavigate();
+    // Caixa de confirmação local usada antes de uma exclusão permanente.
     const Modal = ({ message, onConfirm, onCancel }: ModalProps) => (
         <div className="px-2 fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full">
@@ -72,6 +76,7 @@ export default function Management() {
     );
     
     useEffect(() => {
+        // Carrega a lista uma vez ao entrar na página; em falha, mantém a grade vazia.
         (async () => {
             try {
                 await fetchNews().then(setNews);
@@ -82,6 +87,7 @@ export default function Management() {
     }, [])
 
     const remove = async (slug: string) => {
+        // Após a API responder, retira o item localmente para evitar uma segunda consulta completa.
         try {
             await deleteArticle(slug);
             setNews(prev => prev?.filter(article => article.slug !== slug));
@@ -95,6 +101,7 @@ export default function Management() {
     return(
         <div className="py-8">
             {articleToDelete && (
+                /* O modal bloqueia a exclusão até o usuário confirmar ou cancelar. */
                 <Modal 
                     message="Ao continuar, esta matéria será deletada."
                     onConfirm={() => remove(articleToDelete)}
@@ -137,7 +144,7 @@ export default function Management() {
                         />
                     </div>
                 </div>
-                {/* News */}
+                {/* Grade de notícias com atalhos de edição e exclusão em cada item. */}
                 <div className="max-w-full overflow-x-hidden grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {Array.isArray(news) && news.map((article, id) => { console.log(article);
                      return (

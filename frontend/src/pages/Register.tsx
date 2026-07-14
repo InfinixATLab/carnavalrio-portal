@@ -9,6 +9,7 @@ const headers = () => ({
     "Content-Type": "application/json",
 })
 
+// Cria o usuário; o endpoint recebe os campos do formulário em JSON.
 async function registerUser(payload: {}): Promise<User[]> {
     const res = await api.post("/users/", payload, { headers: headers() })
     return res.data
@@ -22,6 +23,7 @@ interface LoginForm {
 }
 
 export default function Register() {
+    // Mantém os quatro campos controlados, a exibição da senha e uma mensagem de falha.
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [error, setError] = useState<String>("");
     const navigate = useNavigate();
@@ -38,6 +40,7 @@ export default function Register() {
     })
 
     const register = async (e: React.FormEvent) => {
+        // O navegador valida os campos `required`; sucesso redireciona ao login com aviso na URL.
         e.preventDefault();
         
         try {
@@ -50,6 +53,7 @@ export default function Register() {
 
     return (
         <main className="h-full w-full px-8 py-12">
+            {/* Formulário de cadastro e atalho para usuários que já possuem conta. */}
             <h1 className="mx-auto text-center max-w-max font-bold text-2xl">Bem-Vindo!</h1>
             <form onSubmit={register} className="m-auto sm:max-w-[80%] md:max-w-[50%] lg:max-w-[30%] grid grid-cols-1 gap-4 mt-8">
                 {error && (

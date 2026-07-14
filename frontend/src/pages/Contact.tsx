@@ -2,10 +2,12 @@ import { FaGear } from "react-icons/fa6";
 import Footer from "../components/Footer/Footer";
 import Header from "../components/Header/Header";
 
+// Página institucional reservada aos canais de contato com a equipe do portal.
 export default function Contact() {
     return (
         <>
             <Header />
+                {/* Aviso visual de manutenção apresentado enquanto o canal não está disponível. */}
                 <div className="container md:max-w-[60%] xl:max-w-[50%] mx-auto px-4 py-8">
                     <h1 className="text-2xl text-center font-bold mb-4">Fale Conosco</h1>
                     <p className="text-center">Em manutenção! Por favor, tente novamente mais tarde!</p>

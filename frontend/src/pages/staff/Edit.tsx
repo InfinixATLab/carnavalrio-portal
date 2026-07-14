@@ -19,6 +19,7 @@ const headers = () => ({
 type UploadResult = { id: number } | { error: string }
 type EditResult = { error?: string; data?: any };
 
+// Cria uma imagem nova ou atualiza os metadados da existente; em sucesso retorna seu ID.
 async function upload(payload: any, pk?: any): Promise<UploadResult> {
     try {
         const endpoint = pk ? `upload/${pk}/` : 'upload/';
@@ -33,6 +34,7 @@ async function upload(payload: any, pk?: any): Promise<UploadResult> {
     }
 }
 
+// Recupera os dados atuais usados para preencher o formulário de edição.
 async function getArticle(slug: string): Promise<News> {
     try {
         const {data} = await api.get(slug + "/");
@@ -51,6 +53,7 @@ async function getArticle(slug: string): Promise<News> {
 
 // EditArticle agora recebe um payload que pode ter 'image' como ID
 // Para evitar problemas de tipo, podemos ser mais flexíveis ou ajustar o payload
+// Envia a atualização parcial e aceita qualquer status para traduzir erros do backend manualmente.
 async function editArticle (payload: any, slug: string): Promise<EditResult> {
     
     // A checagem do ID agora será feita no handleSubmit antes de criar o payload
@@ -75,6 +78,7 @@ async function editArticle (payload: any, slug: string): Promise<EditResult> {
 
 // --- Funções de Erro (sem mudanças) ---
 function getFriendlyError(error: unknown): string {
+    // Converte formatos variados de validação, token e upload em mensagens compreensíveis.
     // ... (seu código getFriendlyError aqui, sem mudanças)
     console.error(error)
     if (typeof error === "string") {
@@ -143,6 +147,7 @@ const ErrorModal = ({ message, onClose }: ErrorModalProps) => (
 // --- Componente Principal Refatorado ---
 
 export default function Edit() {
+    // A página coordena dados do artigo, escolas, capa, progresso e mensagens de erro.
     const { schools, loading: schoolsLoading, fetchSchools } = useSchools();
     const { slug: slugURL } = useParams();
     const navigate = useNavigate(); // Hook de navegação
@@ -160,11 +165,13 @@ export default function Edit() {
 
     // Busca escolas ao montar
     useEffect(() => {
+        // Executa uma vez para preencher o seletor de escolas.
         fetchSchools();
     }, []);
 
     // Busca o artigo ao montar ou quando o slug mudar
     useEffect(() => {
+        // Recarrega o artigo quando o slug da rota muda e reinicia a capa original.
         const retrieveArticle = async () => {
             if (!slugURL) {
                 console.error("Slug da URL não encontrado");
@@ -200,6 +207,7 @@ export default function Edit() {
 
     // Timer para o relógio (sem mudanças)
     useEffect(() => {
+        // Atualiza o horário exibido a cada minuto e cancela o intervalo ao desmontar.
         const timer = setInterval(() => {
             setCurrentDateTime(new Date());
         }, 60 * 1000);
@@ -211,6 +219,7 @@ export default function Edit() {
 
     // --- LÓGICA DE SUBMISSÃO REFEITA ---
     const handleSubmit = async () => {
+        // Salva primeiro eventuais mudanças da capa e depois envia a notícia com o ID resultante.
         if (!formData) return; // Não faz nada se os dados não carregaram
 
         setIsLoading(true);
@@ -254,6 +263,7 @@ export default function Edit() {
 
             // 2. Prepara o payload final para o artigo
             const identifier = slug(formData.title);
+            // O título atualizado gera novamente slug e link público antes do PATCH da notícia.
             const finalPayload = {
                 ...formData,
                 title: formData.title,
@@ -311,6 +321,7 @@ export default function Edit() {
 
             <Header />
             <main className="mx-4 my-8 md:mx-auto md:max-w-[50%]">
+                {/* Formulário editorial: escola, título, capa, corpo rico e ação de salvar. */}
                 
                 {/* --- SELETOR DE ESCOLA (CORRIGIDO) --- */}
                 <div className="flex flex-wrap md:flex-nowrap justify-start gap-4">

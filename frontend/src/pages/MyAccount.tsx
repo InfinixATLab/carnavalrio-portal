@@ -14,12 +14,14 @@ const headers = () => ({
     'Authorization': `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`
 })
 
+// Obtém o identificador necessário para montar os endpoints de atualização do perfil.
 async function fetchUser(): Promise<string> {
     const res = await api.get("users/me/", { headers: headers() });
     return res.data.id;
 }
 
 async function updateField(payload: {}, user_id: string, password: boolean): Promise<User> {
+    // Senhas usam uma ação específica; nome e e-mail usam a atualização parcial do usuário.
     const url = password ? `users/${user_id}/change-password/` : `users/${user_id}/`
 
     try{
@@ -50,6 +52,7 @@ const FIELD_LABELS: Record<FieldType, string> = {
 }
 
 export default function MyAccount() {
+    // O modal edita um campo por vez; `formValues` preserva os valores digitados por categoria.
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [fieldType, setFieldType] = useState<FieldType | null>(null);
     const [userId, setUserId] = useState<string>("");
@@ -85,6 +88,7 @@ export default function MyAccount() {
     }
 
     const handleSubmit = async () => {
+        // Ignora valores vazios, envia apenas o campo selecionado e atualiza o nome local quando necessário.
         getUser();
 
         if (!fieldType) return;
@@ -106,6 +110,7 @@ export default function MyAccount() {
 
     return (
         <>
+            {/* Resumo da conta e menu das configurações disponíveis. */}
             <div className="h-screen md:h-min md:border md:border-gray-300 md:rounded-lg md:max-w-[60%] lg:max-w-[40%] mx-auto md:mt-20">
                 <div className="text-center py-8 bg-gradient-to-b from-red-800 to-red-950 overflow-hidden md:rounded-t-lg">
                     <div className="rounded-full bg-white max-w-max max-h-max mx-auto p-4">
@@ -126,6 +131,7 @@ export default function MyAccount() {
             </div>
 
             {isModalOpen && fieldType && (
+                /* O modal adapta rótulo e tipo do campo à configuração escolhida. */
                 <Modal modalTitle="Configurações da Conta"
                     isOpen={isModalOpen}
                     onClose={closeModal}
@@ -167,6 +173,7 @@ type SettingItemProps = {
   onClick?: () => void;
 };
 
+// Item visual reutilizado pelas ações da lista de configurações.
 function SettingItem({ icon, label, onClick }: SettingItemProps) {
   return (
     <li

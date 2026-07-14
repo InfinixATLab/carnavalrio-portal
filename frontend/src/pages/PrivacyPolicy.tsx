@@ -6,10 +6,12 @@ import { Link } from "react-router-dom";
 TEXTO FEITO COM GEMINI!!!!
 Este é um modelo genérico. As leis de privacidade (como a LGPD no Brasil) são complexas e podem exigir adaptações específicas para a forma como seu portal opera, coleta e processa dados. É fundamental que você consulte um profissional jurídico para garantir que sua Política de Privacidade esteja totalmente em conformidade com a legislação vigente e que proteja adequadamente o seu portal e os dados dos seus usuários. */
 
+// Página estática que organiza as informações sobre coleta, uso e proteção de dados pessoais.
 export default function PrivacyPolicy() {
     return (
         <>
         <Header />
+            {/* Documento legal dividido em seções temáticas e encerrado pelo rodapé institucional. */}
             <div className="container md:max-w-[60%] xl:max-w-[50%] mx-auto px-4 py-8">
                 <h1 className="text-2xl font-bold mb-4">Política de Privacidade</h1>
                 <p>A sua privacidade é de extrema importância para o Radar de Notícias RJ. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informações pessoais quando você utiliza nosso portal de notícias. Ao acessar e usar o Radar de Notícias RJ, você concorda com as práticas descritas nesta política.</p>

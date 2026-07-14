@@ -9,6 +9,7 @@ import Footer from '../components/Footer/Footer';
 import { formatarDataHora } from '../tools/Tools';
 import Spinner from '../components/Spinner/Spinner';
 
+// Busca uma notícia pelo slug; a resposta deve respeitar o modelo News completo.
 async function getArticle(slug: string): Promise<News> {
   try {
     const { data } = await api.get('news/' + slug + '/');
@@ -29,6 +30,7 @@ async function getArticle(slug: string): Promise<News> {
 }
 
 export default function Article() {
+  // A página carrega o artigo indicado na rota e separa a imagem para facilitar a renderização.
   const { slug } = useParams();
   const navigate = useNavigate();
   const [article, setArticle] = useState<News | null>(null);
@@ -36,6 +38,7 @@ export default function Article() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Executa na montagem e sempre que o slug mudar; slugs ausentes ou falhas voltam ao início.
     (async () => {
       if (!slug) {
         navigate('/');
@@ -79,6 +82,7 @@ export default function Article() {
         <>
           <Header />
           <main className="mx-4 mb-8 my-4 md:mx-auto md:max-w-[50%]">
+            {/* Cabeçalho editorial com escola, título, autoria e data de atualização. */}
             <div className="my-4">
               <p className="w-1/2 text-[#6e3a62ff] font-bold text-sm">
                 {article.school?.name}
@@ -111,6 +115,7 @@ export default function Article() {
             <div>
               <p className="text-gray-500 text-xs my-1">{image?.alt}</p>
             </div>
+            {/* O HTML editorial é sanitizado antes da inserção para reduzir risco de conteúdo malicioso. */}
             <div className="max-w-full">
               <div
                 className="text-sm leading-6 w-full my-4 break-words prose [&>p]:mb-4 [&>div]:mb-4 [&>h1]:mb-1 [&>h1>strong]:text-1xl [&>h2]:mb-1 [&>h2>strong]:text-lg [&>h3]:mb-1 [&>h3>strong]:text-md"

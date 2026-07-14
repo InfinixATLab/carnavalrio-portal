@@ -7,7 +7,9 @@ type ModalProps = {
     children: React.ReactNode;
 };
 
+// Modal reutilizável com animação de entrada/saída, fechamento por fundo e tecla Escape.
 export default function Modal({ isOpen, onClose, modalTitle, children }: ModalProps) {
+    // `show` conserva o elemento montado durante a saída; `animate` alterna as classes de transição.
     const overlayRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const [show, setShow] = useState(false);
@@ -45,7 +47,7 @@ export default function Modal({ isOpen, onClose, modalTitle, children }: ModalPr
                 onClick={onClose}
             />
 
-            {/* Content */}
+            {/* Conteúdo em primeiro plano, separado da camada escura clicável. */}
             <div
                 ref={contentRef}
                 className={`
@@ -56,7 +58,7 @@ export default function Modal({ isOpen, onClose, modalTitle, children }: ModalPr
                 `}
                 style={{ zIndex: 50 }}
             >
-                {/* Modal Header */}
+                {/* Cabeçalho opcional com título e botão de fechamento. */}
                 <div className={`flex items-center p-4 ${modalTitle ? "justify-between" : "justify-end"}`}>
                     {/* Modal Title */}
                     {modalTitle && <h2 className="text-lg font-semibold">{modalTitle}</h2>}
@@ -69,7 +71,7 @@ export default function Modal({ isOpen, onClose, modalTitle, children }: ModalPr
                     </button>
                 </div>
 
-                {/* Modal Body */}
+                {/* Corpo livre recebido pelo componente chamador. */}
                 <div className="p-4 flex justify-center items-center h-auto">
                     {children}
                 </div>

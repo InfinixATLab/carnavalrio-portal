@@ -16,14 +16,17 @@ const header = () => ({
 })
 
 async function fetchUser(): Promise<User> {
+    // O endpoint deve responder um perfil com os indicadores booleanos de função.
     const res = await api.get("users/me/", { headers: header() });
     return res.data;
 }
 
 export default function RoleProtectedRoute({ children, allowedRoles }: Props) {
+  // O perfil indefinido mantém o spinner até a autorização poder ser calculada.
   const [user, setUser] = useState<User>();
 
     useEffect(() => {
+        // Consulta o usuário uma vez ao montar a proteção da área administrativa.
         const getUser = async () => {
             try {
                 setUser(await fetchUser());
@@ -39,6 +42,7 @@ export default function RoleProtectedRoute({ children, allowedRoles }: Props) {
     return <Spinner />
   }
 
+  // Basta que uma das funções permitidas esteja ativa no perfil retornado.
   const hasAccess = allowedRoles.some((role) => user[role]);
 
   if (!hasAccess) {

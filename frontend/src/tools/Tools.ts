@@ -1,3 +1,4 @@
+// Normaliza títulos para uma rota minúscula, sem símbolos e separada por hífens.
 export function slug(input: string): string {
     return input
         .toLowerCase()
@@ -11,6 +12,7 @@ export function slug(input: string): string {
         .replace(/--+/g, '-');
 }
 
+// Localiza um cookie pelo nome e devolve seu valor decodificado, usado principalmente pelo CSRF.
 export function getCookie(name: string): string | null {
     let cookieValue: string | null = null;
 
@@ -29,7 +31,9 @@ export function getCookie(name: string): string | null {
     return cookieValue;
 }
 
+// Exibe datas do dia como “Hoje” e as demais no formato de data e hora do portal.
 export function formatarDataHora(dataIso: Date | string): string {
+    // Compara a data informada com o dia corrente, desconsiderando o horário.
     function isToday(date: Date): boolean {
         const today = new Date();
         today.setHours(0, 0, 0, 0);

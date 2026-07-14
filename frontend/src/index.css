@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Normalização global de caixa, espaçamento, tipografia e decoração dos links. */
 * {
   box-sizing: border-box;
   text-decoration: none;
@@ -17,6 +18,7 @@ html {
   width: 100%;
 }
 
+/* Animação utilitária para elementos que precisam girar no sentido anti-horário. */
 @keyframes spin-reverse {
   from {
     transform: rotate(0deg);

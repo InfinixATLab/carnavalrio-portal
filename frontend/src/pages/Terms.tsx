@@ -1,10 +1,12 @@
 import Footer from "../components/Footer/Footer";
 import Header from "../components/Header/Header"
 
+// Página estática que apresenta as condições de uso e responsabilidades do portal.
 export default function Terms() {
     return (
     <>
     <Header />
+        {/* Documento de termos organizado em tópicos entre a navegação e o rodapé. */}
         <div className="container md:max-w-[60%] xl:max-w-[50%] mx-auto px-4 py-8">
             <h1 className="text-2xl font-bold mb-4">Termos e Condições</h1>
             <p>Bem-vindo ao Radar de Notícias RJ! Ao acessar e usar nosso portal de notícias, você concorda em cumprir e estar vinculado aos seguintes termos e condições de uso. Por favor, leia-os atentamente. Se você não concordar com qualquer parte destes termos, por favor, não utilize nosso portal.</p>

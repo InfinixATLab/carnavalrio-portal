@@ -7,12 +7,14 @@ import type { User } from '../../interfaces/User';
 import api from '../../services/api';
 import { FaHouse } from 'react-icons/fa6';
 
+// Monta os cabeçalhos das requisições de usuário com o token salvo na sessão local.
 const header = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`,
 });
 
 async function fetchUser(): Promise<User> {
+  // A API deve responder com os dados pessoais e os indicadores de função do usuário autenticado.
   const res = await api.get('users/me/', { headers: header() });
   return res.data;
 }
@@ -22,6 +24,7 @@ interface HeaderProps {
 }
 
 export default function Header({ disabled }: HeaderProps) {
+  // Os estados controlam separadamente o menu de navegação, o menu da conta e os dados do usuário.
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const [user, setUser] = useState<User>({
@@ -37,11 +40,13 @@ export default function Header({ disabled }: HeaderProps) {
   const navigate = useNavigate();
 
   const handleMenu = () => {
+    // Mantém somente um menu aberto por vez para evitar sobreposição.
     if (isUserMenuOpen && !isMenuOpen) setIsUserMenuOpen(false);
     setIsMenuOpen(!isMenuOpen);
   };
 
   async function getUser() {
+    // Carrega o perfil apenas na primeira abertura; falhas de autenticação levam ao login.
     if (!user) navigate('/login');
 
     try {
@@ -60,6 +65,7 @@ export default function Header({ disabled }: HeaderProps) {
 
   return (
     <>
+      {/* Barra principal com menu, logotipo e acesso à conta. */}
       <header className="flex justify-between px-4 py-4 items-center bg-[#f3cb05ff] text-white">
         <button
           onClick={handleMenu}
@@ -135,6 +141,7 @@ export default function Header({ disabled }: HeaderProps) {
             </nav> */}
 
       {isMenuOpen && !isUserMenuOpen && (
+        /* Painel de navegação exibido sobre a página quando o menu principal está aberto. */
         <div className="fixed inset-0 z-20 flex">
           {/* BACKDROP */}
           <div

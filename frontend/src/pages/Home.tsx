@@ -10,6 +10,7 @@ import { formatarDataHora } from "../tools/Tools";
 import type { News } from "../interfaces/News";
 import { useSchools } from "../hooks/useRegions/useSchools";
 
+// Consulta paginada: recebe filtros e espera totalCount mais a lista resumida de notícias.
 const GET_NEWS_AND_COUNT = gql`
     query GetNewsAndCount($school: String, $limit: Int, $offset: Int, $status: String, $title: String) {
         newsAndCount(school: $school, limit: $limit, offset: $offset, status: $status, title: $title) {
@@ -40,9 +41,11 @@ const GET_NEWS_AND_COUNT = gql`
     }
 `;
 
+// Atrasa a aplicação da busca para não consultar a API a cada tecla digitada.
 const useDebounce = (value: string, delay: number) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
     useEffect(() => {
+        // Reinicia o temporizador sempre que o texto ou o intervalo mudar.
         const handler = setTimeout(() => {
             setDebouncedValue(value);
         }, delay);
@@ -56,6 +59,7 @@ const useDebounce = (value: string, delay: number) => {
 }
 
 export default function Home() {
+    // A página combina filtros da URL, busca textual e paginação para montar a vitrine de notícias.
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
@@ -67,6 +71,7 @@ export default function Home() {
 
     const ITEMS_PER_PAGE = 11;
 
+    // Apollo refaz a consulta quando filtro, página ou busca estabilizada mudam.
     const { loading, error, data } = useQuery(GET_NEWS_AND_COUNT, {
         variables: {
             school: searchParams.get("school"),
@@ -79,15 +84,18 @@ export default function Home() {
     });
 
     useEffect(() => {
+        // Uma nova pesquisa volta à primeira página para evitar offsets sem resultados.
         if (debouncedSearchTerm !== "") setCurrentPage(1);
     }, [debouncedSearchTerm]);
 
     useEffect(() => {
+        // Carrega as escolas uma vez para converter seus IDs em nomes legíveis.
         (async() => {
             await fetchSchools();
         })();
     }, []);
 
+    // Enriquece as notícias com o nome da escola e reparte o resultado em três seções visuais.
     const { highlight, mainList, remnantList } = useMemo(() => {
         const newsList = data?.newsAndCount?.news; // Property 'newsAndCount' does not exist on type '{}'.
         
@@ -113,6 +121,7 @@ export default function Home() {
     const totalCount = data?.newsAndCount?.totalCount ?? 0;
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
+    // Os limites impedem navegar antes da primeira ou depois da última página.
     const handleNextPage = () => {
         setCurrentPage((prev) => Math.min(prev + 1, totalPages));
     };
@@ -128,6 +137,7 @@ export default function Home() {
     return (
         <>
             <Header />
+            {/* Campo de busca controlado; a consulta só usa o valor após o debounce. */}
             <div className="relative max-w-[80%] md:max-w-[50%] mx-auto p-4">
                 <div className="absolute left-8 top-1/2 transform -translate-y-1/2 text-gray-400">
                     <svg
@@ -157,6 +167,7 @@ export default function Home() {
                 {loading && data && <div className="text-center p-4">Atualizando...</div>}
                 {error && <div className="text-center p-4">Nenhuma notícia publicada até o momento...</div>}
                 
+                {/* A primeira notícia recebe maior destaque visual. */}
                 {highlight && (
                     <div onClick={() => routeToArticle(highlight.slug)} className="hover:cursor-pointer">
                         <p className="text-[#6e3a62ff] font-bold text-sm mb-2">

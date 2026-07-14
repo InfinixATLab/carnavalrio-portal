@@ -22,6 +22,7 @@ const headers = () => ({
     "Authorization": `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`
 })
 
+// Envia a capa em multipart e espera o identificador numérico do arquivo criado.
 async function upload(payload: FormData): Promise<UploadImageResponse> {
     const res = await api.post<UploadImageResponse>("upload/", payload, {
         headers: headers()
@@ -29,6 +30,7 @@ async function upload(payload: FormData): Promise<UploadImageResponse> {
     return res.data;
 }
 
+// Valida localmente o ID da capa antes de criar a notícia com um corpo JSON completo.
 async function publishNews(payload: CreateNewsPayload): Promise<CreateNewsResponse> {
     if (!payload.image || typeof payload.image !== "number" || payload.image < 0) {
         throw new Error("Imagem de capa inválida ou ausente.");
@@ -42,6 +44,7 @@ async function publishNews(payload: CreateNewsPayload): Promise<CreateNewsRespon
 
 // --- Tratamento de Erro ---
 
+// Uniformiza mensagens que podem chegar como texto único ou vetor de textos.
 function validationMessage(value: unknown): string | null {
     if (typeof value === "string") {
         return value;
@@ -55,6 +58,7 @@ function validationMessage(value: unknown): string | null {
     return null;
 }
 
+// Procura erros conhecidos por prioridade e usa qualquer outro campo como alternativa.
 function getApiValidationMessage(data: ApiValidationErrors): string | null {
     const slugMessage = validationMessage(data.slug);
     if (slugMessage) return slugMessage;
@@ -88,6 +92,7 @@ function getApiValidationMessage(data: ApiValidationErrors): string | null {
     return null;
 }
 
+// Traduz falhas HTTP, validações e erros locais para a mensagem exibida no modal.
 function getFriendlyError(error: unknown): string {
     console.error(error);
 
@@ -146,9 +151,11 @@ const ErrorModal = ({ message, onClose }: ErrorModalProps) => (
 
 // --- Componente Principal Refatorado ---
 
+// Página administrativa que valida, envia a capa e publica uma notícia nova.
 export default function Publish() {
     const { schools, loading: schoolsLoading, fetchSchools } = useSchools(); 
     
+    // Estados controlam mensagens, relógio, progresso, arquivo/preview e campos editoriais.
     const [uploadError, setUploadError] = useState("");
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
     const [isLoading, setIsLoading] = useState(false);
@@ -169,6 +176,7 @@ export default function Publish() {
     });
 
     useEffect(() => {
+        // Na montagem, carrega escolas e inicia o relógio; o intervalo é removido ao sair.
         const timer = setInterval(() => {
             setCurrentDateTime(new Date());
         }, 60 * 1000);
@@ -183,6 +191,7 @@ export default function Publish() {
     // --- LÓGICA DE SUBMISSÃO REFEITA ---
 
     const handleUploadImage = async (): Promise<UploadImageResponse> => {
+        // O endpoint de upload recebe multipart com `file` e `alt` e deve devolver `{ id }`.
         if (!(imageUpload.file && imageUpload.alt)) {
              throw new Error("A imagem de capa e o subtítulo são obrigatórios.");
         }
@@ -196,6 +205,7 @@ export default function Publish() {
 
 // Valida os dados do botao "clica", faz o uploading das imagens, cria noticiasas, trata noticia e retorna o usuario para pagina recem publicada
     const handleSubmit = async () => {
+        // Valida obrigatórios, publica a imagem, compõe o payload e redireciona para o artigo criado.
         setIsLoading(true);
         setUploadError("");
 
@@ -208,6 +218,7 @@ export default function Publish() {
             const imageId = coverResult.id;
             const identifier = slug(formData.title);
 
+            // Slug, autoria, link e ID da capa completam os campos mantidos pelo formulário.
             const updatedPayload: CreateNewsPayload = {
                 ...formData,
                 image: imageId,
@@ -243,6 +254,7 @@ export default function Publish() {
 
             <Header />
             <main className="mx-4 my-8 md:mx-auto md:max-w-[50%]">
+                {/* Formulário editorial com escola, título, capa, editor rico e botão de publicação. */}
                 
                 {/* --- SELETOR DE ESCOLA (NOVO) --- */}
                 <div className="flex flex-wrap md:flex-nowrap justify-start gap-4">

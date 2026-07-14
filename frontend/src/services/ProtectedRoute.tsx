@@ -9,14 +9,18 @@ interface ProtectedRouteProps {
     children: ReactNode;
 }
 
+// Guarda rotas que exigem sessão válida, renovando o access token expirado quando possível.
 function ProtectedRoute({ children }: ProtectedRouteProps) {
+    // `null` significa que a verificação inicial ainda está em andamento.
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
+        // Executa uma vez na montagem para decidir entre conteúdo protegido e redirecionamento.
         auth().catch(() => setIsAuthorized(false))
     }, []);
 
     const refreshToken = async () => {
+        // Envia o refresh token salvo; uma resposta 200 deve trazer um novo token de acesso.
         const refreshToken = localStorage.getItem(REFRESH_TOKEN);
 
         try {
@@ -36,6 +40,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     const auth = async () => {
+        // Decodifica apenas a expiração do JWT e evita chamar refresh enquanto ele ainda é válido.
         const token = localStorage.getItem(ACCESS_TOKEN);
 
         if (!token) {

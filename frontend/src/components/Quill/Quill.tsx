@@ -3,6 +3,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import type { Quill } from '../../interfaces/Quill';
 
+// Remove parágrafos vazios gerados pelo editor antes de entregar o HTML ao formulário.
 function cleanQuillHtml(htmlString: string) {
     if (!htmlString || typeof htmlString !== 'string') return '';
     const emptyParagraphRegex = /(<p>\s*<br\s*\/?>\s*<\/p>)+/gi;
@@ -14,6 +15,7 @@ function cleanQuillHtml(htmlString: string) {
     return cleanedHtml;
 }
 
+// Adaptador controlado do React Quill usado nos formulários de publicação e edição.
 const RichTextEditor: React.FC<Quill> = ({
   value,
   onChange,
@@ -21,6 +23,7 @@ const RichTextEditor: React.FC<Quill> = ({
   className = ""
 }) => {
   const handleChange = (html: string) => {
+    // Propaga somente a versão limpa do conteúdo para o estado mantido pela página pai.
     const finalHtml = cleanQuillHtml(html);
     onChange(finalHtml);
   };
@@ -48,6 +51,7 @@ const RichTextEditor: React.FC<Quill> = ({
   ];
 
   return (
+    /* Área visual do editor com barra de ferramentas e altura mínima para digitação. */
     <div className={`rich-text-editor-container ${className}`}>
       <ReactQuill
         theme="snow"

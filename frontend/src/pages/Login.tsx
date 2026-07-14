@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ACCESS_TOKEN, EMAIL, NAME, REFRESH_TOKEN, SURNAME } from "../constants/Token";
 import type { Token } from "../interfaces/Token";
 
+// Envia as credenciais e espera tokens mais os dados básicos definidos pela interface Token.
 async function loginUser(payload: {}): Promise<Token> {
     const {data} = await api.post('token/', payload)
     return data
@@ -17,6 +18,7 @@ interface LoginForm {
 }
 
 export default function Login() {
+    // Controla visibilidade da senha, mensagens e os valores enviados pelo formulário.
     const navigate = useNavigate();
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
@@ -26,6 +28,7 @@ export default function Login() {
     const [error, setError] = useState<String>("");
 
     useEffect(() => {
+        // Ao montar, evita mostrar o login quando o marcador local informa uma sessão já ativa.
         const verifyLoggedUser = async () => {
             const verifier = localStorage.getItem("auth");
             if (verifier === "true") navigate("/");
@@ -44,6 +47,7 @@ export default function Login() {
     })
 
     const login = async (e: React.FormEvent) => {
+        // Valida presença dos campos antes da chamada e impede o envio padrão do navegador.
         e.preventDefault();
 
         if (!formData || !(formData.email && formData.password)) {
@@ -53,6 +57,7 @@ export default function Login() {
         
         try {
             const res = await loginUser(formData);
+            // Tokens sustentam a autenticação; nome e e-mail personalizam outras telas.
             localStorage.setItem(ACCESS_TOKEN, res.access);
             localStorage.setItem(REFRESH_TOKEN, res.refresh);
             localStorage.setItem(EMAIL, res.email);
@@ -66,6 +71,7 @@ export default function Login() {
 
     return (
         <main className="h-full w-full px-8 py-12">
+            {/* Formulário de acesso com mensagens de erro e confirmação de cadastro. */}
             <h1 className="mx-auto text-center max-w-max font-bold text-2xl">Bem-Vindo!</h1>
             <form onSubmit={login} className="m-auto sm:max-w-[80%] md:max-w-[50%] lg:max-w-[30%] grid grid-cols-1 gap-4 mt-8">
                 {error && (

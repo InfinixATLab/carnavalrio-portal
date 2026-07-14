@@ -1,9 +1,11 @@
 import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { Link } from "react-router-dom";
 
+// Rodapé institucional compartilhado, com redes sociais, páginas legais e direitos autorais.
 export default function Footer() {
     return (
         <footer className="text-center">
+            {/* Faixa de identidade visual e atalhos para os perfis sociais oficiais. */}
             <div className="bg-[#f3cb05ff] text-[#6e3a62ff]">
                 <div className=" px-2 py-4 md:flex items-center md:justify-between md:mx-auto md:max-w-[80%] lg:max-w-[50%]">
                     <h1 className="font-bold">CARNAVALRIO</h1>
@@ -18,6 +20,7 @@ export default function Footer() {
                     </div>
                 </div>
             </div>
+            {/* Navegação secundária para informações legais e canais de contato. */}
             <div className="underline flex flex-col gap-[20px] py-6 px-2 mx-auto border-t border-grey-500 md:flex-row md:justify-center">
                 <Link to="/privacy-policy" className="text-xs">POLÍTICA DE PRIVACIDADE</Link>
                 <Link to="/terms" className="text-xs">TERMOS E CONDIÇÕES</Link>
