@@ -10,6 +10,11 @@ import { formatarDataHora } from "../tools/Tools";
 import type { News } from "../interfaces/News";
 import { useSchools } from "../hooks/useRegions/useSchools";
 
+type HomeNews = News & {
+    authorName: string;
+    updatedAt: string;
+};
+
 // Consulta paginada: recebe filtros e espera totalCount mais a lista resumida de notícias.
 const GET_NEWS_AND_COUNT = gql`
     query GetNewsAndCount($school: String, $limit: Int, $offset: Int, $status: String, $title: String) {
@@ -57,6 +62,12 @@ const useDebounce = (value: string, delay: number) => {
 
     return debouncedValue;
 }
+//Normaliza um texto de pesquisa
+const normalizeSearchValue = (value: string | null | undefined) =>
+    value
+        ?.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("pt-BR") ?? "";
 
 export default function Home() {
     // A página combina filtros da URL, busca textual e paginação para montar a vitrine de notícias.
@@ -71,14 +82,14 @@ export default function Home() {
 
     const ITEMS_PER_PAGE = 11;
 
-    // Apollo refaz a consulta quando filtro, página ou busca estabilizada mudam.
+    // Apollo refaz a consulta apenas quando os filtros da listagem ou a página mudam.
     const { loading, error, data } = useQuery(GET_NEWS_AND_COUNT, {
         variables: {
             school: searchParams.get("school"),
             limit: ITEMS_PER_PAGE,
             offset: (currentPage - 1) * ITEMS_PER_PAGE,
             status: "Publicado",
-            title: debouncedSearchTerm,
+            title: "",
         },
         fetchPolicy: "network-only"
     });
@@ -101,12 +112,21 @@ export default function Home() {
         
         if (!newsList || newsList.length === 0) return { highlight: null, mainList: [], remnantList: [] };
 
+        const normalizedSearchTerm = normalizeSearchValue(debouncedSearchTerm.trim());
+        const filteredNews = normalizedSearchTerm
+            ? newsList.filter((news: HomeNews) =>
+                [news.title, news.image?.alt, news.slug, news.authorName].some((value) =>
+                    normalizeSearchValue(value).includes(normalizedSearchTerm)
+                )
+            )
+            : newsList;
+
         const schoolsMap = (schools || []).reduce((acc, s) => {
             acc[s.id] = s.name; // Element implicitly has an 'any' type because expression of type 'number' can't be used to index type '{}'. No index signature with a parameter of type 'number' was found on type '{}'.
             return acc;
         }, {});
 
-        const newsEnhanced = newsList.map((n: News) => ({
+        const newsEnhanced = filteredNews.map((n: HomeNews) => ({
             ...n,
             school: schoolsMap[Number(n.school)] || n.school
         }))
@@ -116,7 +136,7 @@ export default function Home() {
             mainList: newsEnhanced.slice(1, 5),
             remnantList: newsEnhanced.slice(5, 11),
         }
-    }, [data, schools]);
+    }, [data, schools, debouncedSearchTerm]);
 
     const totalCount = data?.newsAndCount?.totalCount ?? 0;
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -137,7 +157,7 @@ export default function Home() {
     return (
         <>
             <Header />
-            {/* Campo de busca controlado; a consulta só usa o valor após o debounce. */}
+            {/* Campo de busca controlado; o valor estabilizado filtra as notícias já carregadas. */}
             <div className="relative max-w-[80%] md:max-w-[50%] mx-auto p-4">
                 <div className="absolute left-8 top-1/2 transform -translate-y-1/2 text-gray-400">
                     <svg
@@ -163,7 +183,7 @@ export default function Home() {
                 />
             </div>
 
-            <div className="bg-white py-4 px-4 space-y-4 min-h-screen md:max-w-[80%] lg:max-w-[50%] mx-auto">
+            <div className="bg-white py-4 px-4 space-y-3 min-h-screen md:max-w-[80%] lg:max-w-[50%] mx-auto">
                 {loading && data && <div className="text-center p-4">Atualizando...</div>}
                 {error && <div className="text-center p-4">Nenhuma notícia publicada até o momento...</div>}
                 
@@ -174,7 +194,7 @@ export default function Home() {
                             {highlight.school}
                         </p>
                         <div
-                            className="bg-gray-200 h-[300px] rounded-sm flex items-end justify-start text-white"
+                            className="bg-gray-200 h-[260px] sm:h-[320px] rounded-md flex items-end justify-start text-white overflow-hidden shadow-sm"
                             style={{
                                 backgroundImage: `url('${highlight.image.url}')`,
                                 backgroundPosition: "center",
@@ -182,11 +202,16 @@ export default function Home() {
                                 backgroundSize: "cover",
                             }}
                         >
-                            <h2 className="text-1xl font-bold bg-gray-900 bg-opacity-30 p-1">
+                            <h2 className="w-full text-lg sm:text-xl font-bold bg-gray-900 bg-opacity-50 p-3">
                                 {highlight.title}
                             </h2>
                         </div>
-                        <p className="text-xs text-gray-600 mt-2 font-bold">
+                        {highlight.image?.alt && (
+                            <p className="text-sm text-gray-600 mt-2 leading-5">
+                                {highlight.image.alt}
+                            </p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
                             Publicado por {highlight.authorName} |{" "}
                             {formatarDataHora(highlight.updatedAt)}
                         </p>
@@ -194,55 +219,64 @@ export default function Home() {
                 )}
 
                 {/* Lista principal */}
-                <div className="max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mainList.map((item: News) => (
-                        <div
+                <div className="max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                    {mainList.map((item: HomeNews) => (
+                        <article
                             key={item.id}
-                            className="flex gap-4 items-start border border-gray-300 shadow-md py-4 px-2 rounded-md cursor-pointer"
+                            className="flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
                             onClick={() => routeToArticle(item.slug)}
                         >
-                            {/* ATUALIZADO: checa 'item.image' */}
                             {item.image && (
-                                <div className="w-1/2 h-full bg-gray-100 rounded-sm overflow-hidden">
+                                <div className="relative w-[38%] sm:w-1/3 min-h-[132px] bg-gray-100 overflow-hidden shrink-0">
                                     <img
-                                        // ATUALIZADO: de 'item.preview.file' para 'item.image.fileUrl'
                                         src={item.image.url}
-                                        // REMOVIDO: 'alt={item.preview.alt}' (você disse que removeu 'alt')
-                                        className="w-full h-full object-cover"
+                                        alt={item.image.alt || item.title}
+                                        className="absolute inset-0 w-full h-full object-cover object-center"
                                     />
                                 </div>
                             )}
-                            <div className="flex flex-col flex-wrap w-1/2 grow">
-                                <p className="text-[#6e3a62ff] font-bold text-sm">{item.school?.name}</p>
-                                <p className="text-sm font-semibold max-w-full">{item.title}</p>
+                            <div className="flex flex-col grow p-3 min-w-0">
+                                <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1">{item.school}</p>
+                                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900">{item.title}</h3>
+                                {item.image?.alt && (
+                                    <p className="text-xs sm:text-sm text-gray-600 leading-4 mt-1.5">{item.image.alt}</p>
+                                )}
+                                <p className="text-[10px] sm:text-xs text-gray-500 mt-auto pt-2">
+                                    Publicado por {item.authorName} | {formatarDataHora(item.updatedAt)}
+                                </p>
                             </div>
-                        </div>
+                        </article>
                     ))}
                 </div>
 
                 {/* Restantes */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 rounded-md">
-                    {remnantList.map((item: News) => (
-                        <div
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    {remnantList.map((item: HomeNews) => (
+                        <article
                             key={item.id}
-                            className="bg-slate-950 bg-opacity-20 rounded-sm overflow-hidden shadow-lg cursor-pointer"
+                            className="flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
                             onClick={() => routeToArticle(item.slug)}
                         >
-                            {/* ATUALIZADO: checa 'item.image' */}
                             {item.image && (
-                                <img
-                                    // ATUALIZADO: de 'item.preview.file' para 'item.image.fileUrl'
-                                    src={item.image.url}
-                                    // REMOVIDO: 'alt={item.preview.alt}'
-                                    className="w-full h-32 object-cover shadow-lg"
-                                />
+                                <div className="relative w-[38%] sm:w-1/3 min-h-[132px] bg-gray-100 overflow-hidden shrink-0">
+                                    <img
+                                        src={item.image.url}
+                                        alt={item.image.alt || item.title}
+                                        className="absolute inset-0 w-full h-full object-cover object-center"
+                                    />
+                                </div>
                             )}
-                            <div className="p-2">
-                                {/* ATUALIZADO: de 'subjectName' para 'schoolName' */}
-                                <p className="text-xs text-[#6e3a62ff]">{item.school?.name}</p>
-                                <h3 className="text-sm font-semibold mt-1">{item.title}</h3>
+                            <div className="flex flex-col grow p-3 min-w-0">
+                                <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1">{item.school}</p>
+                                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900">{item.title}</h3>
+                                {item.image?.alt && (
+                                    <p className="text-xs sm:text-sm text-gray-600 leading-4 mt-1.5">{item.image.alt}</p>
+                                )}
+                                <p className="text-[10px] sm:text-xs text-gray-500 mt-auto pt-2">
+                                    Publicado por {item.authorName} | {formatarDataHora(item.updatedAt)}
+                                </p>
                             </div>
-                        </div>
+                        </article>
                     ))}
                 </div>
 
