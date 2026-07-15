@@ -29,7 +29,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
             });
 
             if (res.status === 200) {
-                localStorage.setItem(ACCESS_TOKEN, res.data.acess)
+                localStorage.setItem(ACCESS_TOKEN, res.data.access)
                 setIsAuthorized(true)
             } else {
                 setIsAuthorized(false)

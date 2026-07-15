@@ -37,7 +37,7 @@ async function upload(payload: any, pk?: any): Promise<UploadResult> {
 // Recupera os dados atuais usados para preencher o formulário de edição.
 async function getArticle(slug: string): Promise<News> {
     try {
-        const {data} = await api.get(slug + "/");
+        const {data} = await api.get(`news/${slug}/`); // Busca na Api a noticia e armazena em data 
         return data;
     } catch (error: any) {
         console.error("Erro ao buscar a notícia: ", error)
@@ -149,7 +149,7 @@ const ErrorModal = ({ message, onClose }: ErrorModalProps) => (
 export default function Edit() {
     // A página coordena dados do artigo, escolas, capa, progresso e mensagens de erro.
     const { schools, loading: schoolsLoading, fetchSchools } = useSchools();
-    const { slug: slugURL } = useParams();
+    const { slug: slugURL } = useParams<{ slug: string }>();
     const navigate = useNavigate(); // Hook de navegação
     
     const [uploadError, setUploadError] = useState("");

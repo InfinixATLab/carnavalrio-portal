@@ -24,19 +24,24 @@ async function fetchUser(): Promise<User> {
 export default function RoleProtectedRoute({ children, allowedRoles }: Props) {
   // O perfil indefinido mantém o spinner até a autorização poder ser calculada.
   const [user, setUser] = useState<User>();
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
     useEffect(() => {
         // Consulta o usuário uma vez ao montar a proteção da área administrativa.
         const getUser = async () => {
             try {
                 setUser(await fetchUser());
-            } catch (error) {
-                <Navigate to="/login" replace />;
+            } catch {
+                setShouldRedirect(true);
             }
         }
 
         getUser();
     }, []);
+
+  if (shouldRedirect) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (!user) {
     return <Spinner />
