@@ -92,7 +92,7 @@ export default function Home() {
 
   const { schools, loading: schoolsLoading, fetchSchools } = useSchools();
 
-  const ITEMS_PER_PAGE = 5;
+  const ITEMS_PER_PAGE = 7;
 
   // Apollo refaz a consulta apenas quando os filtros da listagem ou a página mudam.
   const { loading, error, data } = useQuery(GET_NEWS_AND_COUNT, {
@@ -118,12 +118,15 @@ export default function Home() {
     })();
   }, []);
 
-  // Enriquece as notícias com o nome da escola e reparte o resultado em três seções visuais.
-  const { highlight, mainList, remnantList } = useMemo(() => {
+  // Enriquece as notícias com o nome da escola e reparte o resultado em duas seções visuais.
+  const { highlight, newsList } = useMemo(() => {
     const newsList = data?.newsAndCount?.news; // Property 'newsAndCount' does not exist on type '{}'.
 
     if (!newsList || newsList.length === 0)
-      return { highlight: null, mainList: [], remnantList: [] };
+      return {
+        highlight: null,
+        newsList: [],
+      };
 
     const normalizedSearchTerm = normalizeSearchValue(
       debouncedSearchTerm.trim()
@@ -149,8 +152,7 @@ export default function Home() {
 
     return {
       highlight: newsEnhanced[0],
-      mainList: newsEnhanced.slice(1, 5),
-      remnantList: newsEnhanced.slice(5, 11),
+      newsList: newsEnhanced.slice(1, 7),
     };
   }, [data, schools, debouncedSearchTerm]);
 
@@ -245,45 +247,7 @@ export default function Home() {
 
         {/* Lista principal */}
         <div className="max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-          {mainList.map((item: HomeNews) => (
-            <article
-              key={item.id}
-              className="flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => routeToArticle(item.slug)}
-            >
-              {item.image && (
-                <div className="relative w-[38%] sm:w-1/3 min-h-[132px] bg-gray-100 overflow-hidden shrink-0">
-                  <img
-                    src={item.image.url}
-                    alt={item.image.alt || item.title}
-                    className="absolute inset-0 w-full h-full object-cover object-center"
-                  />
-                </div>
-              )}
-              <div className="flex flex-col grow p-3 min-w-0">
-                <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1">
-                  {item.school}
-                </p>
-                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900">
-                  {item.title}
-                </h3>
-                {item.image?.alt && (
-                  <p className="text-xs sm:text-sm text-gray-600 leading-4 mt-1.5">
-                    {item.image.alt}
-                  </p>
-                )}
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-auto pt-2">
-                  Publicado por {item.authorName} |{' '}
-                  {formatarDataHora(item.updatedAt)}
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {/* Restantes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-          {remnantList.map((item: HomeNews) => (
+          {newsList.map((item: HomeNews) => (
             <article
               key={item.id}
               className="flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
