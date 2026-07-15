@@ -89,6 +89,9 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const normalizedSearchTerm = normalizeSearchValue(
+    debouncedSearchTerm.trim()
+  );
 
   const { schools, loading: schoolsLoading, fetchSchools } = useSchools();
 
@@ -98,8 +101,10 @@ export default function Home() {
   const { loading, error, data } = useQuery(GET_NEWS_AND_COUNT, {
     variables: {
       school: searchParams.get('school'),
-      limit: ITEMS_PER_PAGE,
-      offset: (currentPage - 1) * ITEMS_PER_PAGE,
+      limit: normalizedSearchTerm ? null : ITEMS_PER_PAGE,
+      offset: normalizedSearchTerm
+        ? 0
+        : (currentPage - 1) * ITEMS_PER_PAGE,
       status: 'Publicado',
       title: '',
     },
@@ -108,7 +113,7 @@ export default function Home() {
 
   useEffect(() => {
     // Uma nova pesquisa volta à primeira página para evitar offsets sem resultados.
-    if (debouncedSearchTerm !== '') setCurrentPage(1);
+    setCurrentPage(1);
   }, [debouncedSearchTerm]);
 
   useEffect(() => {
@@ -119,18 +124,16 @@ export default function Home() {
   }, []);
 
   // Enriquece as notícias com o nome da escola e reparte o resultado em duas seções visuais.
-  const { highlight, newsList } = useMemo(() => {
+  const { highlight, newsList, searchResultCount } = useMemo(() => {
     const newsList = data?.newsAndCount?.news; // Property 'newsAndCount' does not exist on type '{}'.
 
     if (!newsList || newsList.length === 0)
       return {
         highlight: null,
         newsList: [],
+        searchResultCount: 0,
       };
 
-    const normalizedSearchTerm = normalizeSearchValue(
-      debouncedSearchTerm.trim()
-    );
     const filteredNews = normalizedSearchTerm
       ? newsList.filter((news: HomeNews) =>
           [news.title, news.image?.alt, news.slug, news.authorName].some(
@@ -140,12 +143,17 @@ export default function Home() {
         )
       : newsList;
 
+    const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
+    const visibleNews = normalizedSearchTerm
+      ? filteredNews.slice(pageStart, pageStart + ITEMS_PER_PAGE)
+      : filteredNews;
+
     const schoolsMap = (schools || []).reduce((acc, s) => {
       acc[s.id] = s.name; // Element implicitly has an 'any' type because expression of type 'number' can't be used to index type '{}'. No index signature with a parameter of type 'number' was found on type '{}'.
       return acc;
     }, {});
 
-    const newsEnhanced = filteredNews.map((n: HomeNews) => ({
+    const newsEnhanced = visibleNews.map((n: HomeNews) => ({
       ...n,
       school: schoolsMap[Number(n.school)] || n.school,
     }));
@@ -153,10 +161,13 @@ export default function Home() {
     return {
       highlight: newsEnhanced[0],
       newsList: newsEnhanced.slice(1, 7),
+      searchResultCount: filteredNews.length,
     };
-  }, [data, schools, debouncedSearchTerm]);
+  }, [currentPage, data, normalizedSearchTerm, schools]);
 
-  const totalCount = data?.newsAndCount?.totalCount ?? 0;
+  const totalCount = normalizedSearchTerm
+    ? searchResultCount
+    : data?.newsAndCount?.totalCount ?? 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   // Os limites impedem navegar antes da primeira ou depois da última página.
