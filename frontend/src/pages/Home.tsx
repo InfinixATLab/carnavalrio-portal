@@ -250,27 +250,27 @@ export default function Home() {
           {newsList.map((item: HomeNews) => (
             <article
               key={item.id}
-              className="flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
+              className="h-[190px] flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
               onClick={() => routeToArticle(item.slug)}
             >
-              {item.image && (
-                <div className="relative w-[38%] sm:w-1/3 min-h-[132px] bg-gray-100 overflow-hidden shrink-0">
+              <div className="relative w-[38%] sm:w-1/3 h-full bg-gray-100 overflow-hidden shrink-0">
+                {item.image?.url && (
                   <img
                     src={item.image.url}
                     alt={item.image.alt || item.title}
                     className="absolute inset-0 w-full h-full object-cover object-center"
                   />
-                </div>
-              )}
+                )}
+              </div>
               <div className="flex flex-col grow p-3 min-w-0">
                 <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1">
                   {item.school}
                 </p>
-                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900">
+                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900 line-clamp-2">
                   {item.title}
                 </h3>
                 {item.image?.alt && (
-                  <p className="text-xs sm:text-sm text-gray-600 leading-4 mt-1.5">
+                  <p className="text-xs sm:text-sm text-gray-600 leading-4 mt-1.5 line-clamp-2">
                     {item.image.alt}
                   </p>
                 )}
