@@ -215,30 +215,35 @@ export default function Home() {
         {highlight && (
           <div
             onClick={() => routeToArticle(highlight.slug)}
-            className="hover:cursor-pointer"
+            className="group hover:cursor-pointer rounded-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
           >
-            <p className="text-[#6e3a62ff] font-bold text-sm mb-2">
-              {highlight.school}
-            </p>
-            <div
-              className="bg-gray-200 h-[260px] sm:h-[320px] rounded-md flex items-end justify-start text-white overflow-hidden shadow-sm"
-              style={{
-                backgroundImage: `url('${highlight.image.url}')`,
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: 'cover',
-              }}
-            >
-              <h2 className="w-full text-lg sm:text-xl font-bold bg-gray-900 bg-opacity-50 p-3">
-                {highlight.title}
-              </h2>
+            <div className="relative bg-gray-200 h-[260px] sm:h-[320px] rounded-lg overflow-hidden shadow-md">
+              {highlight.image?.url && (
+                <img
+                  src={highlight.image.url}
+                  alt={highlight.image.alt || highlight.title}
+                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                <p className="text-xs font-bold uppercase tracking-wide text-white/80 mb-2">
+                  {highlight.school}
+                </p>
+                <h2
+                  title={highlight.title}
+                  className="text-xl sm:text-2xl font-bold leading-tight text-white line-clamp-3"
+                >
+                  {highlight.title}
+                </h2>
+              </div>
             </div>
             {highlight.image?.alt && (
-              <p className="text-sm text-gray-600 mt-2 leading-5">
+              <p className="text-sm text-gray-600 mt-3 leading-6 line-clamp-2">
                 {highlight.image.alt}
               </p>
             )}
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">
               Publicado por {highlight.authorName} |{' '}
               {formatarDataHora(highlight.updatedAt)}
             </p>
@@ -250,7 +255,7 @@ export default function Home() {
           {newsList.map((item: HomeNews) => (
             <article
               key={item.id}
-              className="h-[190px] flex overflow-hidden border border-gray-200 bg-white shadow-sm rounded-md cursor-pointer transition-shadow hover:shadow-md"
+              className="group h-[190px] flex overflow-hidden border border-gray-100 bg-white shadow-sm rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
               onClick={() => routeToArticle(item.slug)}
             >
               <div className="relative w-[38%] sm:w-1/3 h-full bg-gray-100 overflow-hidden shrink-0">
@@ -258,15 +263,18 @@ export default function Home() {
                   <img
                     src={item.image.url}
                     alt={item.image.alt || item.title}
-                    className="absolute inset-0 w-full h-full object-cover object-center"
+                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                   />
                 )}
               </div>
-              <div className="flex flex-col grow p-3 min-w-0">
-                <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1">
+              <div className="flex flex-col grow p-4 min-w-0">
+                <p className="text-[#6e3a62ff] font-bold text-[10px] uppercase mb-1 tracking-wide">
                   {item.school}
                 </p>
-                <h3 className="text-sm sm:text-base font-bold leading-5 text-gray-900 line-clamp-2">
+                <h3
+                  title={item.title}
+                  className="text-sm sm:text-base font-bold leading-5 text-gray-950 line-clamp-2"
+                >
                   {item.title}
                 </h3>
                 {item.image?.alt && (
@@ -274,7 +282,7 @@ export default function Home() {
                     {item.image.alt}
                   </p>
                 )}
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-auto pt-2">
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-auto pt-2 border-t border-gray-100">
                   Publicado por {item.authorName} |{' '}
                   {formatarDataHora(item.updatedAt)}
                 </p>
