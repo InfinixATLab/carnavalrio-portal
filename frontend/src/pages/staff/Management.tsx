@@ -3,6 +3,7 @@ import type { News } from "../../interfaces/News";
 import api from "../../services/api";
 import { useEffect, useState } from "react";
 import { FaEdit, FaTrashAlt } from "react-icons/fa";
+import { formatarDataHora } from "../../tools/Tools";
 
 type ModalProps = {
     message: string;
@@ -99,7 +100,7 @@ export default function Management() {
     }
     
     return(
-        <div className="py-8">
+        <div className="min-h-screen bg-gray-50 py-8 sm:py-10">
             {articleToDelete && (
                 /* O modal bloqueia a exclusão até o usuário confirmar ou cancelar. */
                 <Modal 
@@ -108,15 +109,23 @@ export default function Management() {
                     onCancel={() => setArticleToDelete("")}
                 />
             )}
-            <header className="px-4 text-center ">
-                Gerenciamento de Notícias
+            <header className="px-4 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#6e3a62ff]">
+                    Área editorial
+                </p>
+                <h1 className="mt-2 text-2xl font-bold text-gray-950 sm:text-3xl">
+                    Gerenciamento de Notícias
+                </h1>
+                <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+                    Encontre uma matéria para editar ou publique um novo conteúdo.
+                </p>
             </header>
-            <div className="px-4 my-8 flex flex-col gap-5 mx-auto sm:max-w-[80%] md:max-w-[60%] lg:max-w-[50%]">
-                <div className="flex flex-col md:flex-row items-center gap-4">
+            <main className="mx-auto my-8 flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-stretch gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center">
                     {/* Add News Button */}
                     <button
                         onClick={() => navigate("publish/")}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 md:w-auto"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -124,8 +133,8 @@ export default function Management() {
                         <span className="no-wrap">Nova Matéria</span>
                     </button>
                     {/* Search */}
-                    <div className="relative w-full">
-                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    <div className="relative w-full md:flex-1">
+                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                     strokeLinecap="round"
@@ -140,40 +149,85 @@ export default function Management() {
                             placeholder="Buscar sua notícia..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 my-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full rounded-lg border border-gray-300 py-3 pl-10 pr-4 text-sm text-gray-900 transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
                 </div>
                 {/* Grade de notícias com atalhos de edição e exclusão em cada item. */}
-                <div className="max-w-full overflow-x-hidden grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {Array.isArray(news) && news.map((article, id) => { console.log(article);
-                     return (
-                        <div key={id} className="flex gap-4 items-start border border-gray-300 shadow-md py-4 px-2 rounded-md">
-                            <div className="w-25 h-full bg-gray-100 rounded-sm overflow-hidden w-1/2">
+                <div className="grid max-w-full grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {Array.isArray(news) && news.map((article) => (
+                        <article
+                            key={article.slug}
+                            className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg"
+                        >
+                            <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
                                 {article.image && (
                                     <img
                                         src={article.image.file}
-                                        className="w-full h-full object-cover object-center"
+                                        alt={article.image.alt || article.title}
+                                        className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                                     />
                                 )}
+                                {article.status && (
+                                    <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#6e3a62ff] shadow-sm backdrop-blur-sm">
+                                        {article.status}
+                                    </span>
+                                )}
                             </div>
-                            <div className="flex flex-col flex-wrap w-full grow sm:gap-1 md:justify-between">
-                                <p className="text-sm font-semibold max-w-full">{article.title}</p>
+                            <div className="flex min-w-0 flex-1 flex-col p-5">
+                                <h2
+                                    title={article.title}
+                                    className="line-clamp-3 text-lg font-bold leading-6 text-gray-950"
+                                >
+                                    {article.title}
+                                </h2>
+
+                                <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
+                                    {article.author_name && (
+                                        <p className="flex items-center gap-2">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                            </span>
+                                            <span className="truncate">Por {article.author_name}</span>
+                                        </p>
+                                    )}
+                                    {article.updated_at && (
+                                        <p className="flex items-center gap-2">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </span>
+                                            <span>{formatarDataHora(article.updated_at)}</span>
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex gap-4 flex-col items-center">
-                                <FaEdit
-                                    className="cursor-pointer"
+                            <div className="grid grid-cols-[1fr_auto] gap-3 border-t border-gray-100 bg-gray-50/70 p-4">
+                                <button
+                                    type="button"
                                     onClick={() => navigate(`edit/${article.slug}`)}
-                                />
-                                <FaTrashAlt
-                                    className="text-red-600 cursor-pointer"
+                                    className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                >
+                                    <FaEdit aria-hidden="true" />
+                                    Editar matéria
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setArticleToDelete(article.slug)}
-                                />
+                                    aria-label={`Excluir ${article.title}`}
+                                    title="Excluir matéria"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                                >
+                                    <FaTrashAlt aria-hidden="true" />
+                                </button>
                             </div>
-                        </div>
-                    )})}
+                        </article>
+                    ))}
                 </div>
-            </div>
+            </main>
         </div>
     )
 }
