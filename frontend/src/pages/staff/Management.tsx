@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import type { News } from "../../interfaces/News";
+import type { PaginatedResponse } from "../../interfaces/PaginatedResponse";
 import api from "../../services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaEdit, FaTrashAlt } from "react-icons/fa";
 import { formatarDataHora } from "../../tools/Tools";
 
@@ -11,13 +12,24 @@ type ModalProps = {
     onCancel?: () => void;
 };
 
-// Lista as notícias administrativas; a resposta paginada deve trazer os itens em `results`.
-async function fetchNews(): Promise<News[]> {
+// Lista as notícias administrativas; durante a busca, percorre todas as páginas disponíveis.
+async function fetchNews(loadAllPages = false, signal?: AbortSignal): Promise<News[]> {
     try {
-        const {data} = await api.get("news/");
-        
-        return data.results;
+        const collectedNews: News[] = [];
+        const visitedPages = new Set<string>();
+        let nextPage: string | null = "news/";
+
+        while (nextPage && !visitedPages.has(nextPage)) {
+            const currentPage = nextPage;
+            visitedPages.add(currentPage);
+            const {data} = await api.get<PaginatedResponse<News>>(currentPage, { signal });
+            collectedNews.push(...data.results);
+            nextPage = loadAllPages ? data.next : null;
+        }
+
+        return collectedNews;
     } catch (error: any) {
+        if (signal?.aborted) throw error;
         console.error("Erro ao buscar notícias: ", error)
 
         if (error.code === "ECONNABORTED") {
@@ -29,6 +41,12 @@ async function fetchNews(): Promise<News[]> {
         }
     }
 }
+// permite fazer pesquisa sennivel
+const normalizeSearchValue = (value: string | null | undefined) =>
+    value
+        ?.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("pt-BR") ?? "";
 
 // Remove uma notícia pelo slug e converte sucesso ou falha em um resultado simples para a tela.
 async function deleteArticle(slug: string): Promise<{ error: any } | { response: string}> {
@@ -45,6 +63,7 @@ async function deleteArticle(slug: string): Promise<{ error: any } | { response:
 export default function Management() {
     // Estados mantêm a busca digitada, a listagem atual e o slug aguardando confirmação de exclusão.
     const [searchTerm, setSearchTerm] = useState<string>("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>("");
     const [news, setNews] = useState<News[]>([]);
     const [articleToDelete, setArticleToDelete] = useState<string | null>(null);
     const navigate = useNavigate();
@@ -77,15 +96,39 @@ export default function Management() {
     );
     
     useEffect(() => {
-        // Carrega a lista uma vez ao entrar na página; em falha, mantém a grade vazia.
-        (async () => {
+        const timer = window.setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        // Sem busca, preserva o carregamento normal; com busca, considera todas as páginas.
+        const controller = new AbortController();
+
+        void (async () => {
             try {
-                await fetchNews().then(setNews);
+                const loadedNews = await fetchNews(Boolean(debouncedSearchTerm), controller.signal);
+                setNews(loadedNews);
             } catch (error) {
+                if (controller.signal.aborted) return;
                 setNews([]);
             }
         })();
-    }, [])
+
+        return () => controller.abort();
+    }, [debouncedSearchTerm]);
+
+    const visibleNews = useMemo(() => {
+        const normalizedTerm = normalizeSearchValue(debouncedSearchTerm);
+        if (!normalizedTerm) return news;
+
+        return news.filter((article) =>
+            [article.title, article.author_name, article.status, article.image?.alt]
+                .some((value) => normalizeSearchValue(value).includes(normalizedTerm))
+        );
+    }, [debouncedSearchTerm, news]);
 
     const remove = async (slug: string) => {
         // Após a API responder, retira o item localmente para evitar uma segunda consulta completa.
@@ -155,7 +198,7 @@ export default function Management() {
                 </div>
                 {/* Grade de notícias com atalhos de edição e exclusão em cada item. */}
                 <div className="grid max-w-full grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {Array.isArray(news) && news.map((article) => (
+                    {Array.isArray(visibleNews) && visibleNews.map((article) => (
                         <article
                             key={article.slug}
                             className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg"
