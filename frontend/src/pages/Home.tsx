@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { gql } from '@apollo/client';
 import { useQuery } from '@apollo/client/react';
@@ -10,10 +10,82 @@ import { formatarDataHora } from '../tools/Tools';
 import type { News } from '../interfaces/News';
 import { useSchools } from '../hooks/useRegions/useSchools';
 
-type HomeNews = News & {
+// Recorte da entidade News correspondente exatamente aos campos retornados pelo GraphQL da Home.
+type HomeNews = Pick<
+  News,
+  'title' | 'slug' | 'status' | 'link' | 'school' | 'image'
+> & {
+  id: number;
   authorName: string;
+  author: Pick<News['author'], 'name' | 'surname' | 'email'> & {
+    id: number;
+  };
+  createdAt: string;
   updatedAt: string;
 };
+
+type NewsAndCount = {
+  totalCount: number;
+  news: HomeNews[];
+};
+
+type GetNewsAndCountData = {
+  newsAndCount: NewsAndCount | null;
+};
+
+type GetNewsAndCountVariables = {
+  school: string | null;
+  limit: number | null;
+  offset: number;
+  status: string;
+  title: string;
+};
+
+// Cada consulta normal recebe sete notícias: uma vira destaque e seis iniciam a grade.
+const ITEMS_PER_PAGE = 7;
+
+// Atraso mínimo apenas para facilitar a visualização do loading em desenvolvimento.
+// Pode ser reduzido ou removido em produção.
+const MINIMUM_LOADING_TIME = 1200;
+
+function waitForMinimumLoadingTime(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Uma operação já cancelada não deve criar um novo temporizador.
+    if (signal.aborted) {
+      reject(new DOMException('Requisição cancelada', 'AbortError'));
+      return;
+    }
+
+    // O AbortController limpa o timeout quando o filtro muda ou a página é desmontada.
+    const handleAbort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException('Requisição cancelada', 'AbortError'));
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener('abort', handleAbort);
+      resolve();
+    }, MINIMUM_LOADING_TIME);
+
+    signal.addEventListener('abort', handleAbort, { once: true });
+  });
+}
+
+// Acrescenta somente notícias inéditas, considerando tanto o id quanto o slug.
+function appendUniqueNews(
+  loadedNews: readonly HomeNews[],
+  newNews: readonly HomeNews[]
+): HomeNews[] {
+  const knownIds = new Set(loadedNews.map((article) => article.id));
+  const knownSlugs = new Set(loadedNews.map((article) => article.slug));
+  const uniqueNews = newNews.filter((article) => {
+    if (knownIds.has(article.id) || knownSlugs.has(article.slug)) return false;
+    knownIds.add(article.id);
+    knownSlugs.add(article.slug);
+    return true;
+  });
+
+  return [...loadedNews, ...uniqueNews];
+}
 
 // Consulta paginada: recebe filtros e espera totalCount mais a lista resumida de notícias.
 const GET_NEWS_AND_COUNT = gql`
@@ -82,39 +154,96 @@ const normalizeSearchValue = (value: string | null | undefined) =>
     .toLocaleLowerCase('pt-BR') ?? '';
 
 export default function Home() {
-  // A página combina filtros da URL, busca textual e paginação para montar a vitrine de notícias.
+  // A página combina filtros da URL, busca textual e scroll infinito para montar a vitrine de notícias.
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [currentPage, setCurrentPage] = useState(1);
+  // Estados da pesquisa e da lista acumulada exibida pelo scroll infinito.
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadedNews, setLoadedNews] = useState<HomeNews[]>([]);
+  const [visibleSearchNewsCount, setVisibleSearchNewsCount] =
+    useState(ITEMS_PER_PAGE);
+  const [receivedNewsCount, setReceivedNewsCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [incrementalLoadingStopped, setIncrementalLoadingStopped] =
+    useState(false);
+
+  // A busca mantém o debounce e a normalização já usados pela página.
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const normalizedSearchTerm = normalizeSearchValue(
     debouncedSearchTerm.trim()
   );
+  const schoolFilter = searchParams.get('school');
 
-  const { schools, loading: schoolsLoading, fetchSchools } = useSchools();
+  // As escolas são carregadas separadamente para trocar o id pelo nome nos cards.
+  const { schools, fetchSchools } = useSchools();
 
-  const ITEMS_PER_PAGE = 7;
+  // Referências mutáveis permitem ao observer consultar valores atuais sem depender
+  // apenas do ciclo assíncrono de atualização de estado do React.
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const fetchMoreInProgressRef = useRef(false);
+  const requestGenerationRef = useRef(0);
+  const loadingDelayControllerRef = useRef<AbortController | null>(null);
+  const loadedNewsRef = useRef<readonly HomeNews[]>(loadedNews);
+  const queryVariablesRef = useRef<GetNewsAndCountVariables>({
+    school: schoolFilter,
+    limit: normalizedSearchTerm ? null : ITEMS_PER_PAGE,
+    offset: 0,
+    status: 'Publicado',
+    title: '',
+  });
+  const isSearchActiveRef = useRef(normalizedSearchTerm.length > 0);
+  const visibleSearchNewsCountRef = useRef(visibleSearchNewsCount);
+  const receivedNewsCountRef = useRef(receivedNewsCount);
+  const searchResultCountRef = useRef(0);
+  const hasMoreNewsRef = useRef(false);
+  const initialLoadingRef = useRef(false);
 
-  // Apollo refaz a consulta apenas quando os filtros da listagem ou a página mudam.
-  const { loading, error, data } = useQuery(GET_NEWS_AND_COUNT, {
-    variables: {
-      school: searchParams.get('school'),
+  // A consulta sempre reinicia no offset zero quando a pesquisa ou escola muda.
+  // Na busca, limit continua nulo para preservar a filtragem local existente.
+  const queryVariables = useMemo<GetNewsAndCountVariables>(
+    () => ({
+      school: schoolFilter,
       limit: normalizedSearchTerm ? null : ITEMS_PER_PAGE,
-      offset: normalizedSearchTerm
-        ? 0
-        : (currentPage - 1) * ITEMS_PER_PAGE,
+      offset: 0,
       status: 'Publicado',
       title: '',
-    },
+    }),
+    [normalizedSearchTerm, schoolFilter]
+  );
+
+  // Apollo refaz a consulta quando os filtros mudam; os próximos lotes usam fetchMore.
+  const { loading, error, data, fetchMore } = useQuery<
+    GetNewsAndCountData,
+    GetNewsAndCountVariables
+  >(GET_NEWS_AND_COUNT, {
+    variables: queryVariables,
     fetchPolicy: 'network-only',
   });
 
+  // Uma nova pesquisa ou escola invalida carregamentos anteriores e reinicia a vitrine.
   useEffect(() => {
-    // Uma nova pesquisa volta à primeira página para evitar offsets sem resultados.
-    setCurrentPage(1);
-  }, [debouncedSearchTerm]);
+    requestGenerationRef.current += 1;
+    loadingDelayControllerRef.current?.abort();
+    fetchMoreInProgressRef.current = false;
+    setLoadedNews([]);
+    setVisibleSearchNewsCount(ITEMS_PER_PAGE);
+    setReceivedNewsCount(0);
+    setTotalCount(0);
+    setIsLoadingMore(false);
+    setIncrementalLoadingStopped(false);
+  }, [normalizedSearchTerm, schoolFilter]);
+
+  useEffect(
+    () => () => {
+      // Invalida respostas pendentes e cancela o atraso ao sair da Home.
+      requestGenerationRef.current += 1;
+      loadingDelayControllerRef.current?.abort();
+      fetchMoreInProgressRef.current = false;
+    },
+    []
+  );
 
   useEffect(() => {
     // Carrega as escolas uma vez para converter seus IDs em nomes legíveis.
@@ -123,64 +252,183 @@ export default function Home() {
     })();
   }, []);
 
+  // Sincroniza somente a resposta inicial do filtro ativo; respostas incrementais são acumuladas abaixo.
+  useEffect(() => {
+    if (loading || fetchMoreInProgressRef.current || !data?.newsAndCount)
+      return;
+
+    const initialNews = appendUniqueNews([], data.newsAndCount.news);
+    setLoadedNews(initialNews);
+    setReceivedNewsCount(data.newsAndCount.news.length);
+    setTotalCount(data.newsAndCount.totalCount);
+    setIncrementalLoadingStopped(
+      initialNews.length === 0 && data.newsAndCount.totalCount > 0
+    );
+  }, [data, loading]);
+
   // Enriquece as notícias com o nome da escola e reparte o resultado em duas seções visuais.
   const { highlight, newsList, searchResultCount } = useMemo(() => {
-    const newsList = data?.newsAndCount?.news; // Property 'newsAndCount' does not exist on type '{}'.
-
-    if (!newsList || newsList.length === 0)
+    if (loadedNews.length === 0)
       return {
         highlight: null,
         newsList: [],
         searchResultCount: 0,
       };
 
+    // A pesquisa continua abrangendo título, texto alternativo, slug e autor.
     const filteredNews = normalizedSearchTerm
-      ? newsList.filter((news: HomeNews) =>
+      ? loadedNews.filter((news) =>
           [news.title, news.image?.alt, news.slug, news.authorName].some(
             (value) =>
               normalizeSearchValue(value).includes(normalizedSearchTerm)
           )
         )
-      : newsList;
+      : loadedNews;
 
-    const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
+    // Como a busca já recebe todos os resultados, o scroll apenas libera mais sete por vez.
     const visibleNews = normalizedSearchTerm
-      ? filteredNews.slice(pageStart, pageStart + ITEMS_PER_PAGE)
+      ? filteredNews.slice(0, visibleSearchNewsCount)
       : filteredNews;
 
-    const schoolsMap = (schools || []).reduce((acc, s) => {
-      acc[s.id] = s.name; // Element implicitly has an 'any' type because expression of type 'number' can't be used to index type '{}'. No index signature with a parameter of type 'number' was found on type '{}'.
-      return acc;
-    }, {});
+    // O mapa evita procurar repetidamente a escola de cada notícia.
+    const schoolsMap = new Map(
+      schools.map((school) => [school.id, school.name])
+    );
 
-    const newsEnhanced = visibleNews.map((n: HomeNews) => ({
+    const newsEnhanced = visibleNews.map((n) => ({
       ...n,
-      school: schoolsMap[Number(n.school)] || n.school,
+      school: schoolsMap.get(Number(n.school)) || n.school,
     }));
 
     return {
+      // Somente o primeiro item do conjunto atual ocupa o destaque; os demais ficam na grade.
       highlight: newsEnhanced[0],
-      newsList: newsEnhanced.slice(1, 7),
+      newsList: newsEnhanced.slice(1),
       searchResultCount: filteredNews.length,
     };
-  }, [currentPage, data, normalizedSearchTerm, schools]);
+  }, [loadedNews, normalizedSearchTerm, schools, visibleSearchNewsCount]);
 
-  const totalCount = normalizedSearchTerm
-    ? searchResultCount
-    : data?.newsAndCount?.totalCount ?? 0;
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const isSearchActive = normalizedSearchTerm.length > 0;
+  const displayedNewsCount = highlight ? newsList.length + 1 : 0;
 
-  // Os limites impedem navegar antes da primeira ou depois da última página.
-  const handleNextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  };
+  // Na busca, compara itens visíveis e encontrados. Na listagem normal, compara
+  // o total recebido da API com totalCount e respeita interrupções preventivas.
+  const hasMoreNews = isSearchActive
+    ? displayedNewsCount < searchResultCount
+    : !incrementalLoadingStopped && receivedNewsCount < totalCount;
+  const allNewsLoaded = isSearchActive
+    ? searchResultCount > 0 && displayedNewsCount >= searchResultCount
+    : totalCount > 0 && receivedNewsCount >= totalCount;
+  const shouldShowCompletionMessage =
+    !loading && !isLoadingMore && !hasMoreNews && allNewsLoaded;
 
-  const handlePrevPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
+  // Mantém o callback estável de carregamento sincronizado com o render mais recente.
+  loadedNewsRef.current = loadedNews;
+  queryVariablesRef.current = queryVariables;
+  isSearchActiveRef.current = isSearchActive;
+  visibleSearchNewsCountRef.current = visibleSearchNewsCount;
+  receivedNewsCountRef.current = receivedNewsCount;
+  searchResultCountRef.current = searchResultCount;
+  hasMoreNewsRef.current = hasMoreNews;
+  initialLoadingRef.current = loading && !data;
+
+  // Carrega ou revela o próximo lote, com bloqueio síncrono contra chamadas concorrentes.
+  const loadMoreNews = useCallback(async (): Promise<void> => {
+    // Não inicia durante a primeira consulta, durante outro lote ou depois do fim da lista.
+    if (
+      initialLoadingRef.current ||
+      fetchMoreInProgressRef.current ||
+      !hasMoreNewsRef.current
+    )
+      return;
+
+    const requestGeneration = requestGenerationRef.current;
+    const controller = new AbortController();
+    loadingDelayControllerRef.current = controller;
+    fetchMoreInProgressRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      // A busca preserva sua consulta completa e revela localmente mais sete resultados.
+      if (isSearchActiveRef.current) {
+        await waitForMinimumLoadingTime(controller.signal);
+        if (requestGeneration !== requestGenerationRef.current) return;
+
+        setVisibleSearchNewsCount(
+          Math.min(
+            visibleSearchNewsCountRef.current + ITEMS_PER_PAGE,
+            searchResultCountRef.current
+          )
+        );
+        return;
+      }
+
+      // O offset inclui todas as notícias recebidas, inclusive a notícia em destaque.
+      const offset = receivedNewsCountRef.current;
+
+      // A requisição e o tempo mínimo do loading começam juntos.
+      const nextPageRequest = fetchMore({
+        variables: {
+          ...queryVariablesRef.current,
+          limit: ITEMS_PER_PAGE,
+          offset,
+        },
+      });
+      const [nextPage] = await Promise.all([
+        nextPageRequest,
+        waitForMinimumLoadingTime(controller.signal),
+      ]);
+
+      // Uma troca de pesquisa ou escola torna esta resposta obsoleta.
+      if (requestGeneration !== requestGenerationRef.current) return;
+      const nextResult = nextPage.data?.newsAndCount;
+      const nextNews = nextResult?.news ?? [];
+
+      // Uma página vazia encerra o scroll para impedir requisições em loop.
+      if (nextNews.length === 0) {
+        setIncrementalLoadingStopped(true);
+        return;
+      }
+
+      // Atualiza o total informado pelo backend e acrescenta apenas itens inéditos.
+      if (nextResult) setTotalCount(nextResult.totalCount);
+      const mergedNews = appendUniqueNews(loadedNewsRef.current, nextNews);
+      setReceivedNewsCount(offset + nextNews.length);
+      setLoadedNews(mergedNews);
+      // Um lote inteiramente duplicado também encerra o carregamento incremental.
+      if (mergedNews.length === loadedNewsRef.current.length)
+        setIncrementalLoadingStopped(true);
+    } catch (loadMoreError) {
+      // Cancelamentos esperados não são registrados como falhas de carregamento.
+      if (!controller.signal.aborted) console.error(loadMoreError);
+    } finally {
+      // Uma requisição antiga não pode liberar o bloqueio pertencente ao filtro atual.
+      if (requestGeneration === requestGenerationRef.current) {
+        fetchMoreInProgressRef.current = false;
+        setIsLoadingMore(false);
+      }
+    }
+  }, [fetchMore]);
+
+  // O marcador antecipa o próximo lote e é rearmado apenas quando a lista cresce.
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMoreNews || loading || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void loadMoreNews();
+      },
+      { rootMargin: '300px 0px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMoreNews, isLoadingMore, loadMoreNews, loadedNews.length, loading]);
 
   const routeToArticle = (slug: string) => navigate(`radar/${slug}/`);
 
+  // O spinner de página inteira permanece restrito ao primeiro carregamento.
   if (loading && !data) return <Spinner />;
 
   return (
@@ -213,6 +461,7 @@ export default function Home() {
       </div>
 
       <div className="bg-white py-4 px-4 space-y-3 min-h-screen md:max-w-[80%] lg:max-w-[50%] mx-auto">
+        {/* Mantém os tratamentos visuais preexistentes para atualização e erro. */}
         {loading && data && (
           <div className="text-center p-4">Atualizando...</div>
         )}
@@ -261,7 +510,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Lista principal */}
+        {/* Lista principal: começa com seis cards e recebe sete a cada novo lote. */}
         <div className="max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
           {newsList.map((item: HomeNews) => (
             <article
@@ -302,27 +551,33 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Controles de paginação (sem alterações) */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center space-x-6 mt-8">
-            <button
-              onClick={handlePrevPage}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={currentPage === 1 || loading}
-            >
-              ◀
-            </button>
-            <span className="text-lg font-bold">
-              {currentPage} de {totalPages}
-            </span>
-            <button
-              onClick={handleNextPage}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={currentPage >= totalPages || loading}
-            >
-              ▶
-            </button>
+        {/* Marcador invisível observado somente enquanto ainda existem notícias. */}
+        {hasMoreNews && (
+          <div ref={loadMoreRef} className="h-1" aria-hidden="true" />
+        )}
+        {/* Loading incremental abaixo dos cards, sem substituir o conteúdo existente. */}
+        {isLoadingMore && (
+          <div
+            className="flex items-center justify-center gap-2 py-4"
+            role="status"
+            aria-label="Carregando notícias"
+          >
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#b98bad]" />
+            <span
+              className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#6e3a62]"
+              style={{ animationDelay: '150ms' }}
+            />
+            <span
+              className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#3f2138]"
+              style={{ animationDelay: '300ms' }}
+            />
           </div>
+        )}
+        {/* Confirma a conclusão somente após o último lote terminar. */}
+        {shouldShowCompletionMessage && (
+          <p className="py-4 text-center text-sm font-medium text-gray-500">
+            Todas as notícias já foram carregadas.
+          </p>
         )}
       </div>
       <Footer />
