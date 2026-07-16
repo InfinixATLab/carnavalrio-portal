@@ -18,6 +18,28 @@ html {
   width: 100%;
 }
 
+/* No desktop, reserva o espaço da barra lateral recolhida ou expandida. */
+body.has-app-sidebar {
+  overflow-x: hidden;
+}
+
+@media (min-width: 640px) {
+  body.has-app-sidebar {
+    padding-left: 72px;
+    transition: padding-left 300ms ease-in-out;
+  }
+
+  body.has-app-sidebar.sidebar-expanded {
+    padding-left: 288px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.has-app-sidebar {
+    transition: none;
+  }
+}
+
 /* Animação utilitária para elementos que precisam girar no sentido anti-horário. */
 @keyframes spin-reverse {
   from {
