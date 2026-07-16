@@ -435,7 +435,7 @@ export default function Home() {
     <>
       <Header />
       {/* Campo de busca controlado; o valor estabilizado filtra as notícias já carregadas. */}
-      <div className="relative max-w-[80%] md:max-w-[50%] mx-auto p-4">
+      <div className="sticky top-[72px] z-40 mx-auto max-w-[80%] rounded-b-xl bg-white/95 p-4 shadow-sm backdrop-blur-sm sm:top-[82px] md:max-w-[50%]">
         <div className="absolute left-8 top-1/2 transform -translate-y-1/2 text-gray-400">
           <svg
             className="w-4 h-4"
