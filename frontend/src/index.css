@@ -16,6 +16,7 @@
 html {
   height: 100vh;
   width: 100%;
+  overflow-x: hidden;
 }
 
 /* No desktop, reserva o espaço da barra lateral recolhida ou expandida. */
