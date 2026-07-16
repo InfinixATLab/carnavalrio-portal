@@ -71,26 +71,35 @@ export default function Header({ disabled }: HeaderProps) {
     }
   }
 
-  // Reserva no desktop o espaço ocupado pelo menu para impedir sobreposição com a página.
+  // Mantém o controle do drawer no Header e oferece fechamento pelo teclado.
   useEffect(() => {
-    document.body.classList.add('has-app-sidebar');
+    if (!isMenuOpen) return;
 
-    return () => {
-      document.body.classList.remove('has-app-sidebar', 'sidebar-expanded');
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMenuOpen(false);
     };
-  }, []);
 
-  useEffect(() => {
-    document.body.classList.toggle('sidebar-expanded', isMenuOpen);
-
-    return () => document.body.classList.remove('sidebar-expanded');
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [isMenuOpen]);
 
   return (
     <>
       {/* Barra principal com menu, logotipo e acesso à conta. */}
-      <header className="relative z-30 border-b border-[#6e3a62]/10 bg-[#f3cb05ff] text-[#6e3a62ff] shadow-sm">
-        <div className="mx-auto grid min-h-[72px] max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 sm:min-h-[82px] sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 w-full border-b border-[#6e3a62]/10 bg-[#f3cb05ff] text-[#6e3a62ff] shadow-sm">
+        <div
+          className="mx-auto grid min-h-[72px] max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 sm:min-h-[82px] sm:px-6 lg:px-8"
+          inert={isMenuOpen}
+        >
           <button
             type="button"
             onClick={handleMenu}
@@ -99,7 +108,7 @@ export default function Header({ disabled }: HeaderProps) {
             }
             aria-expanded={isMenuOpen}
             aria-controls="main-navigation-menu"
-            className="flex h-11 w-11 items-center justify-center justify-self-start rounded-full transition-colors hover:bg-[#6e3a62]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f3cb05] sm:hidden"
+            className="flex h-11 w-11 items-center justify-center justify-self-start rounded-full transition-colors hover:bg-[#6e3a62]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f3cb05]"
           >
             <IoMenu className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -232,7 +241,6 @@ export default function Header({ disabled }: HeaderProps) {
             )}
           </div>
         </div>
-      </header>
 
       {/* Menu horizontal só em telas maiores
             <nav className="hidden lg:flex gap-6 justify-center p-2 items-center bg-gray-100 text-sm">
@@ -252,84 +260,67 @@ export default function Header({ disabled }: HeaderProps) {
                 </ul>
             </nav> */}
 
-      {/* Em telas pequenas, o menu expandido usa backdrop sem comprimir o conteúdo. */}
+      {/* O backdrop cobre a página e o Header, mantendo somente o drawer em destaque. */}
       {isMenuOpen && !isUserMenuOpen && (
         <button
           type="button"
           aria-label="Fechar menu principal"
-          className="fixed inset-0 z-40 cursor-default bg-black/45 backdrop-blur-[1px] sm:hidden"
+          className="fixed inset-0 z-[60] cursor-default bg-black/45 backdrop-blur-[2px] motion-reduce:backdrop-blur-none"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
 
-      {/* A barra permanece recolhida no desktop e expande horizontalmente pelo mesmo controle. */}
+      {/* A navegação pertence ao Header e fica fora da tela quando está fechada. */}
       <aside
         id="main-navigation-menu"
         aria-label="Menu principal"
-        className={`fixed inset-y-0 left-0 z-50 flex-col overflow-hidden bg-white shadow-xl transition-[width,transform] duration-300 ease-in-out motion-reduce:transition-none ${
+        aria-hidden={!isMenuOpen}
+        inert={!isMenuOpen}
+        className={`fixed inset-y-0 left-0 z-[70] flex w-[min(88vw,320px)] flex-col overflow-hidden border-r border-[#6e3a62]/10 bg-gradient-to-b from-white via-white to-[#fffbed] shadow-[12px_0_35px_-18px_rgba(63,33,56,0.45)] transition-[transform,visibility] duration-300 ease-out after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:bg-[#f3cb05ff] motion-reduce:transition-none sm:w-72 ${
           isMenuOpen
-            ? 'flex w-[min(82vw,288px)] translate-x-0 sm:w-72'
-            : 'hidden w-[72px] -translate-x-full sm:flex sm:translate-x-0'
+            ? 'visible translate-x-0'
+            : 'invisible -translate-x-full pointer-events-none'
         }`}
       >
-        <div
-          className={`flex min-h-[72px] items-center border-b border-gray-100 transition-[padding] duration-300 sm:min-h-[82px] ${
-            isMenuOpen ? 'justify-between px-5' : 'justify-center px-3'
-          }`}
-        >
-          <div
-            className={`min-w-0 overflow-hidden whitespace-nowrap transition-[width,opacity] duration-200 ${
-              isMenuOpen ? 'w-36 opacity-100' : 'w-0 opacity-0'
-            }`}
-            aria-hidden={!isMenuOpen}
-          >
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
+        <div className="flex min-h-20 items-center justify-between border-b border-[#6e3a62]/10 bg-white/90 px-5 py-3 backdrop-blur-sm sm:px-6">
+          <div className="min-w-0 overflow-hidden whitespace-nowrap">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#6e3a62]/55">
               Navegação
             </p>
-            <p className="mt-0.5 font-bold text-[#6e3a62ff]">Menu</p>
+            <p className="mt-1 text-xl font-bold leading-none text-[#6e3a62ff]">
+              Menu
+            </p>
           </div>
           <button
             type="button"
             onClick={handleMenu}
-            aria-label={
-              isMenuOpen
-                ? 'Recolher menu principal'
-                : 'Expandir menu principal'
-            }
+            aria-label="Fechar menu principal"
             aria-expanded={isMenuOpen}
             aria-controls="main-navigation-links"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#6e3a62ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-[#6e3a62]/20 hover:bg-[#6e3a62]/5 hover:text-[#6e3a62ff] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62] focus-visible:ring-offset-2"
           >
-            {isMenuOpen ? (
-              <IoClose className="h-6 w-6" aria-hidden="true" />
-            ) : (
-              <IoMenu className="h-6 w-6" aria-hidden="true" />
-            )}
+            <IoClose className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
 
         <nav
           id="main-navigation-links"
           aria-label="Navegação principal"
-          className="p-3"
+          className="flex-1 p-4 sm:p-5"
         >
           <a
             href="/"
             aria-current={isHomeActive ? 'page' : undefined}
-            title={isMenuOpen ? undefined : 'Início'}
-            className={`flex h-12 items-center rounded-lg text-sm font-bold text-[#6e3a62ff] transition-colors hover:bg-[#f3cb05]/20 focus:bg-[#f3cb05]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62] ${
-              isMenuOpen ? 'gap-3 px-3' : 'justify-center px-0'
-            } ${isHomeActive ? 'bg-[#f3cb05]/20' : ''}`}
+            className={`group flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold text-[#6e3a62ff] transition-all hover:-translate-y-px hover:border-[#f3cb05]/50 hover:bg-[#f3cb05]/20 hover:shadow-sm active:translate-y-0 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6e3a62] focus-visible:ring-offset-2 ${
+              isHomeActive
+                ? 'border-[#f3cb05]/60 bg-[#f3cb05]/20 shadow-[inset_4px_0_0_#f3cb05]'
+                : 'border-gray-100 bg-white/70'
+            }`}
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3cb05]/25">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f3cb05]/30 text-[#6e3a62ff] transition-colors group-hover:bg-[#f3cb05]/45">
               <FaHouse aria-hidden="true" />
             </span>
-            <span
-              className={`overflow-hidden whitespace-nowrap transition-[width,opacity] duration-200 ${
-                isMenuOpen ? 'w-40 opacity-100' : 'w-0 opacity-0'
-              }`}
-              aria-hidden={!isMenuOpen}
-            >
+            <span className="overflow-hidden whitespace-nowrap">
               Início
             </span>
           </a>
@@ -353,6 +344,7 @@ export default function Header({ disabled }: HeaderProps) {
                             ))}
                         </ul> */}
       </aside>
+      </header>
     </>
   );
 }
